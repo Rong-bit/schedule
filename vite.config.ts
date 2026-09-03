@@ -68,7 +68,11 @@ function googleCalendarIcsProxy(): Plugin {
 }
 
 export default defineConfig(() => {
+  // GitHub Pages 專案站台：https://rong-bit.github.io/schedule/
+  const base = process.env.GITHUB_PAGES === 'true' ? '/schedule/' : '/';
+
   return {
+    base,
     plugins: [react(), tailwindcss(), googleCalendarIcsProxy()],
     resolve: {
       alias: {

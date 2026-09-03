@@ -1,20 +1,20 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 高工實習教學進度表產生器
 
-# Run and deploy your AI Studio app
+中正高工實習課「教學及作業預定進度表」編輯工具。
 
-This contains everything you need to run your app locally.
+## 線上網頁
 
-View your app in AI Studio: https://ai.studio/apps/fac44211-a870-4bb7-ab7e-bc16e6b742fc
+https://rong-bit.github.io/schedule/
 
-## Run Locally
+## 本機執行
 
-**Prerequisites:**  Node.js
+1. 安裝依賴：`npm install`
+2. 啟動：`npm run dev`
+3. 瀏覽器開啟：http://localhost:3000
 
+## 主要功能
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- 21 週進度表與行事曆主檔連動
+- A/B 組共用進度（貼半學期一組即可）
+- 放假／段考紅字標註與列印匯出
+- （本機）同步中正高工公開 Google 日曆到備註欄
