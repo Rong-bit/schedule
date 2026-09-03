@@ -7,14 +7,15 @@ export function generateSyllabusTSV(plan: SyllabusPlan, useFormulas: boolean = f
   const { meta, rows } = plan;
   const lines: string[] = [];
 
-  // School header rows
+  // School header rows（對齊中正高工公版）
   lines.push(`${meta.schoolShortName} ${meta.academicYear} 學年度第 ${meta.semester} 學期實習教學及作業預定進度表\t\t\t\t\t\t`);
-  lines.push(`授課班級：${meta.className}\t實習課程名稱：${meta.courseName}\t上課時間：${meta.courseDayOfWeek || '星期四'} ${meta.coursePeriod || ''}\t每週節數：${meta.weeklyHours} 節\t學分數：${meta.credits} 學分\t\t`);
-  lines.push(`實習任課教師：${meta.mainTeacher}\t分組任課教師：${meta.coTeacher || '無'}\t填表日期：${meta.formDate}\t科主任簽章：${meta.departmentDirector}\t\t\t`);
+  lines.push(`授課班級：${meta.className}\t實習課程名稱：${meta.courseName}\t\t\t\t\t`);
+  lines.push(`實習任課教師：${meta.mainTeacher}\t分組任課教師：${meta.coTeacher || ''}\t\t\t\t\t`);
+  lines.push(`科主任簽章：\t\t\t\t\t\t`);
   lines.push(''); // Empty separator
 
   // Table Headers
-  lines.push(['週次', '起訖日期', '預定實習課程進度', '分組組別', '指定作業／實習成品', '日常考查／評量方式', '備註（學校重要行事）'].join('\t'));
+  lines.push(['週次', '起訖日期', '預定實習課程進度', '分組組別', '指定作業', '日常考查', '備註'].join('\t'));
 
   // Rows
   rows.forEach((row, index) => {
@@ -42,9 +43,8 @@ export function generateSyllabusTSV(plan: SyllabusPlan, useFormulas: boolean = f
     ].join('\t'));
   });
 
-  // Footer / Signatures
   lines.push('');
-  lines.push(`實習任課教師簽章：__________\t分組任課教師簽章：__________\t科主任簽章：__________\t實習處/教務處核章：__________\t\t\t`);
+  lines.push('附註\t\t\t\t\t\t');
 
   return lines.join('\n');
 }

@@ -257,65 +257,38 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
       <div className="paper-sheet rounded-2xl border border-slate-200/90 p-5 sm:p-8 lg:p-10 max-w-5xl mx-auto print:border-none print:p-0 print:shadow-none print:max-w-none">
         
         {/* Printable Official Document Header */}
-        <div className="text-center mb-5 print:mb-3 relative">
-          <div className="inline-block relative">
-            <h2 className="text-xl sm:text-2xl font-bold tracking-wider text-slate-900 print:text-black font-serif">
-              {meta.schoolName || meta.schoolShortName}
-            </h2>
-            <h1 className="text-lg sm:text-xl font-bold tracking-normal text-slate-900 print:text-black mt-1 font-sans">
-              {meta.academicYear} 學年度第 {meta.semester} 學期實習教學及作業預定進度表
-            </h1>
-          </div>
+        <div className="text-center mb-3 print:mb-2 relative">
+          <h1 className="text-base sm:text-lg font-bold tracking-wide text-slate-900 print:text-black font-sans">
+            {meta.schoolShortName || meta.schoolName} {meta.academicYear} 學年度第 {meta.semester} 學期實習教學及作業預定進度表
+          </h1>
         </div>
 
-        {/* Official Form Metadata Bar */}
+        {/* 公版表頭：授課班級、課程、教師、科主任簽章 */}
         <div className="border border-slate-300 print:border-black text-xs sm:text-[13px] mb-[-1px] font-medium text-slate-900 print:text-black bg-slate-50/70 print:bg-transparent rounded-t-lg print:rounded-none overflow-hidden">
-          <div className="grid grid-cols-1 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-300 print:divide-black">
-            <div className="p-2.5 flex items-center gap-1.5">
-              <span className="font-bold text-slate-700 print:text-black whitespace-nowrap">授課班級：</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-300 print:divide-black">
+            <div className="p-2 sm:p-2.5 flex items-center gap-1.5">
+              <span className="font-bold text-slate-700 print:text-black whitespace-nowrap tracking-[0.3em]">授課班級：</span>
               <span className="font-semibold text-blue-900 print:text-black">{meta.className || '未設定'}</span>
             </div>
-            <div className="p-2.5 flex items-center gap-1.5">
+            <div className="p-2 sm:p-2.5 flex items-center gap-1.5">
               <span className="font-bold text-slate-700 print:text-black whitespace-nowrap">實習課程名稱：</span>
               <span className="font-semibold text-blue-900 print:text-black">{meta.courseName || '未設定'}</span>
             </div>
-            <div className="p-2.5 flex items-center gap-1.5">
-              <span className="font-bold text-slate-700 print:text-black whitespace-nowrap">上課時間：</span>
-              <span className="font-bold text-blue-900 print:text-black">
-                {meta.courseDayOfWeek || '星期四'}
-                {meta.coursePeriod && (
-                  <span className="font-normal text-slate-700 print:text-black">（{meta.coursePeriod}）</span>
-                )}
-              </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-300 print:divide-black border-t border-slate-300 print:border-black">
+            <div className="p-2 sm:p-2.5 flex items-center gap-1.5">
+              <span className="font-bold text-slate-700 print:text-black whitespace-nowrap tracking-[0.15em]">實習任課教師：</span>
+              <span className="font-semibold text-slate-900 print:text-black">{meta.mainTeacher || ''}</span>
             </div>
-            <div className="p-2.5 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-slate-700 print:text-black whitespace-nowrap">每週節數：</span>
-                <span className="font-semibold">{meta.weeklyHours} 節</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-slate-700 print:text-black whitespace-nowrap">學分：</span>
-                <span className="font-semibold">{meta.credits}</span>
-              </div>
+            <div className="p-2 sm:p-2.5 flex items-center gap-1.5">
+              <span className="font-bold text-slate-700 print:text-black whitespace-nowrap">分組任課教師：</span>
+              <span className="text-slate-800 print:text-black">{meta.coTeacher || ''}</span>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-300 print:divide-black border-t border-slate-300 print:border-black">
-            <div className="p-2.5 flex items-center gap-1.5">
-              <span className="font-bold text-slate-700 print:text-black whitespace-nowrap">實習任課教師：</span>
-              <span className="font-semibold text-slate-900 print:text-black">{meta.mainTeacher || '無'}</span>
-            </div>
-            <div className="p-2.5 flex items-center gap-1.5">
-              <span className="font-bold text-slate-700 print:text-black whitespace-nowrap">分組任課教師：</span>
-              <span className="text-slate-800 print:text-black">{meta.coTeacher || '無'}</span>
-            </div>
-            <div className="p-2.5 flex items-center gap-1.5">
-              <span className="font-bold text-slate-700 print:text-black whitespace-nowrap">填表日期：</span>
-              <span className="text-slate-800 print:text-black font-mono">{meta.formDate}</span>
-            </div>
-            <div className="p-2.5 flex items-center gap-1.5">
-              <span className="font-bold text-slate-700 print:text-black whitespace-nowrap">科主任簽章：</span>
-              <span className="text-slate-400 print:text-transparent">（核章）</span>
+          <div className="border-t border-slate-300 print:border-black">
+            <div className="p-2 sm:p-2.5 flex items-center gap-1.5 min-h-[36px]">
+              <span className="font-bold text-slate-700 print:text-black whitespace-nowrap tracking-[0.2em]">科主任簽章：</span>
+              <span className="flex-1 min-h-[1.25rem]"></span>
             </div>
           </div>
         </div>
@@ -336,17 +309,18 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
                   預定實習課程進度
                   <span className="text-[10px] font-semibold text-blue-700 ml-1.5 print:hidden">【老師填寫】</span>
                 </th>
-                <th className="py-2.5 px-2 w-[8%] min-w-[65px] border border-slate-300 print:border-black">
+                <th className="py-2.5 px-2 w-[8%] min-w-[65px] border border-slate-300 print:border-black leading-tight">
                   分組
+                  <span className="block">組別</span>
                 </th>
-                <th className="py-2.5 px-2 w-[14%] min-w-[110px] border border-slate-300 print:border-black">
-                  指定作業／成品
+                <th className="py-2.5 px-2 w-[12%] min-w-[88px] border border-slate-300 print:border-black">
+                  指定作業
                 </th>
-                <th className="py-2.5 px-2 w-[11%] min-w-[95px] border border-slate-300 print:border-black">
-                  日常考查／評量
+                <th className="py-2.5 px-2 w-[12%] min-w-[88px] border border-slate-300 print:border-black">
+                  日常考查
                 </th>
-                <th className="py-2.5 px-2.5 w-[14%] min-w-[120px] border border-slate-300 print:border-black text-left">
-                  備註（學校重要行事）
+                <th className="py-2.5 px-2.5 w-[16%] min-w-[120px] border border-slate-300 print:border-black">
+                  備註
                 </th>
               </tr>
             </thead>
@@ -578,35 +552,8 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
           </table>
         </div>
 
-        {/* Official Signatures Section (Footer) */}
-        <div className="print-avoid-break mt-6 pt-5 border-t border-slate-300 print:border-black text-xs sm:text-[13px] font-medium text-slate-900 print:text-black">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-4">
-            <div className="space-y-6">
-              <div className="font-bold text-slate-800 print:text-black">實習任課教師簽章：</div>
-              <div className="border-b border-dashed border-slate-400 w-36 print:border-black"></div>
-            </div>
-            <div className="space-y-6">
-              <div className="font-bold text-slate-800 print:text-black">分組任課教師簽章：</div>
-              <div className="border-b border-dashed border-slate-400 w-36 print:border-black"></div>
-            </div>
-            <div className="space-y-6">
-              <div className="font-bold text-slate-800 print:text-black">科主任核章：</div>
-              <div className="border-b border-dashed border-slate-400 w-36 print:border-black"></div>
-            </div>
-            <div className="space-y-6">
-              <div className="font-bold text-slate-800 print:text-black">實習處／教務處核章：</div>
-              <div className="border-b border-dashed border-slate-400 w-36 print:border-black"></div>
-            </div>
-          </div>
-
-          <div className="mt-5 text-[11px] text-slate-500 print:text-slate-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 border-t border-slate-200/80 print:border-none pt-3">
-            <span>
-              說明：1. 本進度表請於每學期開學前一週或依教學組規定日期填妥送交。 2. 實習課程如採分組輪調教學，請依分組實施計畫填寫。
-            </span>
-            <span className="font-mono text-slate-600 print:text-black font-semibold whitespace-nowrap">
-              第 1 頁 / 共 1 頁
-            </span>
-          </div>
+        <div className="print-avoid-break mt-3 pt-2 text-xs sm:text-[13px] font-medium text-slate-900 print:text-black">
+          <div className="font-bold tracking-[0.4em]">附註</div>
         </div>
 
       </div>

@@ -7,3 +7,4 @@ coverage/
 .env*
 !.env.example
 public/gcal-cache/*.ics
+public/gcal-cache/events.json

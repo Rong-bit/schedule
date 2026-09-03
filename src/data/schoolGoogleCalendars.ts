@@ -2,6 +2,8 @@
 export interface SchoolGoogleCalendarSource {
   id: string;
   label: string;
+  /** 快取檔名（僅英數，避免 GitHub Pages 把 @ # 解碼後找不到檔） */
+  slug: string;
   /** 預設勾選同步 */
   defaultSelected: boolean;
 }
@@ -10,51 +12,61 @@ export const SCHOOL_GOOGLE_CALENDARS: SchoolGoogleCalendarSource[] = [
   {
     id: 'c_4fae35905a29d8bca686782f5256522057dbb209a95f92e9ba98dbaa6a431f6f@group.calendar.google.com',
     label: '教務處',
+    slug: 'jiaowu',
     defaultSelected: true,
   },
   {
     id: 'zh-tw.taiwan#holiday@group.v.calendar.google.com',
     label: '國定假日',
+    slug: 'holiday',
     defaultSelected: true,
   },
   {
     id: 'c_f06f440a94a1f0a78bbeab3dd77efeb0805f94dd2039c7b96f95f380a2e66760@group.calendar.google.com',
     label: '實習處',
+    slug: 'shixi',
     defaultSelected: true,
   },
   {
     id: 'c_4b0794ed20d29e2cb3410db729c92d0586d14f65edad8bbb836cf70fe3f5ce87@group.calendar.google.com',
     label: '學務處',
+    slug: 'xuewu',
     defaultSelected: true,
   },
   {
     id: 'c_4a1579e6b8a1be92e94860760708e3631fd34d52d00d3957cb7d98cef9a24746@group.calendar.google.com',
     label: '圖書館',
+    slug: 'library',
     defaultSelected: false,
   },
   {
     id: 'c_07447754c22a8976cc38828363923c320226304433de41658ccc899cd45601bc@group.calendar.google.com',
     label: '輔導處',
+    slug: 'counseling',
     defaultSelected: false,
   },
   {
     id: 'c_50de6315be25d2b1e1759ddc3812f56f8101dbf23fb869d70892b6ff20cdf7ce@group.calendar.google.com',
     label: '總務處',
+    slug: 'zongwu',
     defaultSelected: false,
   },
   {
     id: 'c_5d2672b305cc8c13db60a51eef993242c339a644f0658e9ba4593d02d8c1f182@group.calendar.google.com',
     label: '秘書室',
+    slug: 'secretary',
     defaultSelected: false,
   },
   {
     id: 'ccvsns@mail2.ccvs.kh.edu.tw',
     label: '進修部',
+    slug: 'night',
     defaultSelected: false,
   },
   {
     id: 'c_0afe1e3de281b51bd789648392e993823f9de235f07cff46e8b1a400bb325595@group.calendar.google.com',
     label: '教官室',
+    slug: 'military',
     defaultSelected: false,
   },
 ];

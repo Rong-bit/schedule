@@ -195,7 +195,15 @@ function looksLikeIcs(text: string): boolean {
 function isLocalDevHost(): boolean {
   if (typeof window === 'undefined') return false;
   const host = window.location.hostname;
-  return host === 'localhost' || host === '127.0.0.1';
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host.endsWith('.local') ||
+    /^192\.168\./.test(host) ||
+    /^10\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  );
 }
 
 async function tryFetchIcs(url: string): Promise<string | null> {
@@ -205,27 +213,52 @@ async function tryFetchIcs(url: string): Promise<string | null> {
   return looksLikeIcs(text) ? text : null;
 }
 
-function cachedIcsUrl(calendarId: string): string {
+function cacheBase(): string {
   const base = import.meta.env.BASE_URL || '/';
-  return `${base}gcal-cache/${encodeURIComponent(calendarId)}.ics`;
+  return `${base}gcal-cache/`;
+}
+
+let cachePackPromise: Promise<Record<string, string>> | null = null;
+
+async function loadCachePack(): Promise<Record<string, string>> {
+  if (!cachePackPromise) {
+    cachePackPromise = fetch(`${cacheBase()}events.json`, { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) return {};
+        const data = await res.json();
+        return data && typeof data === 'object' ? data : {};
+      })
+      .catch(() => ({}));
+  }
+  return cachePackPromise;
+}
+
+function calendarSlug(calendarId: string): string {
+  return SCHOOL_GOOGLE_CALENDARS.find((c) => c.id === calendarId)?.slug || '';
 }
 
 /** 本機走 Vite 代理；GitHub Pages 讀建置時快取（瀏覽器無法直連 Google ICS） */
 async function fetchIcsViaProxy(calendarId: string): Promise<string> {
-  const urls: string[] = [];
-
   if (isLocalDevHost()) {
-    urls.push(`/api/gcal-ics?id=${encodeURIComponent(calendarId)}`);
-  }
-
-  urls.push(cachedIcsUrl(calendarId));
-
-  for (const url of urls) {
     try {
-      const text = await tryFetchIcs(url);
+      const text = await tryFetchIcs(`/api/gcal-ics?id=${encodeURIComponent(calendarId)}`);
       if (text) return text;
     } catch {
-      // 嘗試下一個來源
+      // 改讀快取
+    }
+  }
+
+  const pack = await loadCachePack();
+  const packed = pack[calendarId];
+  if (typeof packed === 'string' && looksLikeIcs(packed)) return packed;
+
+  const slug = calendarSlug(calendarId);
+  if (slug) {
+    try {
+      const text = await tryFetchIcs(`${cacheBase()}${slug}.ics`);
+      if (text) return text;
+    } catch {
+      // 無個別快取檔
     }
   }
 
