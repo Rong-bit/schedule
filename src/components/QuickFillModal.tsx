@@ -469,7 +469,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                 >
                   <div className="font-bold text-slate-800">開頭 2 週 A，4 週 B／4 週 A 循環</div>
                   <div className="text-[11px] text-slate-500 mt-1">
-                    實際上課週才排組別；放假／考查週為「—」。結尾不足 4 週補 A
+                    實際上課週才排組別；放假／考查／全班不佔序。結尾調整使 A／B 週數相同
                   </div>
                 </button>
                 <button
@@ -483,7 +483,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                 >
                   <div className="font-bold text-slate-800">開頭 2 週 B，4 週 A／4 週 B 循環</div>
                   <div className="text-[11px] text-slate-500 mt-1">
-                    與上一項相反：先 B 兩週，再 4A／4B 循環，結尾補 B；放假／考查跳過
+                    與上一項相反：先 B 兩週，再 4A／4B 循環；結尾平衡 A／B 週數
                   </div>
                 </button>
                 <button

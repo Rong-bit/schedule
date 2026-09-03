@@ -224,7 +224,8 @@ export function getCalculatedGroup(
     return (block % 2 === 0) ? nameA : nameB;
   }
   if (pattern === 'aabbbb' || pattern === 'bbaaaa') {
-    // 開頭 2 週第一組，其後 4 週另一組／4 週第一組循環，結尾不足 4 週則補第一組
+    // 開頭 2 週第一組，其後 4／4 循環；結尾不足 4 週先補第一組
+    // （assignGroupsSkippingBreaks 會再從結尾平衡，使 A／B 週數相同）
     const first = pattern === 'aabbbb' ? nameA : nameB;
     const second = pattern === 'aabbbb' ? nameB : nameA;
     if (week <= 2) return first;

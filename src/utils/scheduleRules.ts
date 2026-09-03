@@ -311,6 +311,57 @@ function isWholeClassGroup(group: string): boolean {
   return g === '全班' || g === '全體' || g === '不分組';
 }
 
+function isGroupA(group: string, nameA: string): boolean {
+  if (!group) return false;
+  if (group === nameA) return true;
+  return /^A/i.test(group.trim()) || group.includes('A組') || group.includes('甲組');
+}
+
+function isGroupB(group: string, nameB: string): boolean {
+  if (!group) return false;
+  if (group === nameB) return true;
+  return /^B/i.test(group.trim()) || group.includes('B組') || group.includes('乙組');
+}
+
+/**
+ * 從學期結尾往前調整，讓 A／B 實際上課週數相同（總數為奇數時最多差 1）。
+ * 用於 aabbbb／bbaaaa 等結尾補組會造成不均的規則。
+ */
+function balanceAbGroupsAtEnd(
+  rows: SyllabusRow[],
+  nameA: string,
+  nameB: string
+): SyllabusRow[] {
+  const next = rows.map((r) => ({ ...r }));
+  const rotatable = next
+    .map((r, idx) => ({ r, idx }))
+    .filter(({ r }) => isGroupA(r.group, nameA) || isGroupB(r.group, nameB))
+    .map(({ idx }) => idx);
+
+  if (rotatable.length === 0) return next;
+
+  const countOf = (name: string, isA: boolean) =>
+    rotatable.filter((i) => (isA ? isGroupA(next[i].group, name) : isGroupB(next[i].group, name)))
+      .length;
+
+  for (let k = rotatable.length - 1; k >= 0; k -= 1) {
+    const aCount = countOf(nameA, true);
+    const bCount = countOf(nameB, false);
+    const total = aCount + bCount;
+    const targetDiff = total % 2 === 0 ? 0 : 1;
+    if (Math.abs(aCount - bCount) <= targetDiff) break;
+
+    const idx = rotatable[k];
+    if (aCount > bCount && isGroupA(next[idx].group, nameA)) {
+      next[idx] = { ...next[idx], group: nameB };
+    } else if (bCount > aCount && isGroupB(next[idx].group, nameB)) {
+      next[idx] = { ...next[idx], group: nameA };
+    }
+  }
+
+  return next;
+}
+
 /** 放假／考查週組別為「—」。已標「全班」的週（非整學期都是全班時）保留並不佔輪調序。 */
 export function assignGroupsSkippingBreaks(
   rows: SyllabusRow[],
@@ -340,7 +391,7 @@ export function assignGroupsSkippingBreaks(
   ).length;
 
   let slot = 0;
-  return rows.map((r) => {
+  const assigned = rows.map((r) => {
     if (isSkippedTeachingWeek(r, calendar, dayOfWeek)) {
       return { ...r, group: '—' };
     }
@@ -353,18 +404,13 @@ export function assignGroupsSkippingBreaks(
       group: getCalculatedGroup(slot, pattern, nameA, nameB, sequence, teachingCount),
     };
   });
-}
 
-function isGroupA(group: string, nameA: string): boolean {
-  if (!group) return false;
-  if (group === nameA) return true;
-  return /^A/i.test(group.trim()) || group.includes('A組') || group.includes('甲組');
-}
+  // aabbbb／bbaaaa：結尾補組常造成 A／B 週數不均，從結尾往前平衡
+  if (pattern === 'aabbbb' || pattern === 'bbaaaa') {
+    return balanceAbGroupsAtEnd(assigned, nameA, nameB);
+  }
 
-function isGroupB(group: string, nameB: string): boolean {
-  if (!group) return false;
-  if (group === nameB) return true;
-  return /^B/i.test(group.trim()) || group.includes('B組') || group.includes('乙組');
+  return assigned;
 }
 
 export interface ApplySharedProgressOptions {
