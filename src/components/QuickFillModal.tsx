@@ -1,29 +1,54 @@
-import React, { useState } from 'react';
-import { Sparkles, X, Clipboard, Check, Calendar, RotateCcw, AlertTriangle } from 'lucide-react';
-import { SyllabusPlan, GroupRotationPattern } from '../types';
-import { getCalculatedGroup } from '../data/defaultCalendar';
+import React, { useMemo, useState } from 'react';
+import { Sparkles, X, AlertTriangle } from 'lucide-react';
+import { CalendarWeek, SyllabusPlan, GroupRotationPattern } from '../types';
+import { applySharedGroupProgress, isSkippedTeachingWeek } from '../utils/scheduleRules';
 
 interface QuickFillModalProps {
   isOpen: boolean;
   onClose: () => void;
   plan: SyllabusPlan;
+  calendar?: CalendarWeek[];
   onBatchUpdateRows: (updater: (rows: SyllabusPlan['rows']) => SyllabusPlan['rows']) => void;
   onApplyRotation: (pattern: GroupRotationPattern) => void;
 }
+
+type PasteMode = 'shared-ab' | 'sequential-21';
 
 export const QuickFillModal: React.FC<QuickFillModalProps> = ({
   isOpen,
   onClose,
   plan,
+  calendar,
   onBatchUpdateRows,
   onApplyRotation,
 }) => {
   const [pastedText, setPastedText] = useState('');
   const [selectedTool, setSelectedTool] = useState<'paste' | 'exam' | 'rotation' | 'clear'>('paste');
+  const defaultPasteMode: PasteMode =
+    plan.meta.groupPattern === 'none' ? 'sequential-21' : 'shared-ab';
+  const [pasteMode, setPasteMode] = useState<PasteMode>(defaultPasteMode);
+
+  const teachingPreview = useMemo(() => {
+    const day = plan.meta.courseDayOfWeek || '星期四';
+    const teaching = plan.rows.filter(
+      (row) => !isSkippedTeachingWeek(row, calendar, day)
+    );
+    const aWeeks = teaching.filter(
+      (r) => r.group === plan.meta.groupA_name || /^A/i.test(r.group)
+    );
+    const bWeeks = teaching.filter(
+      (r) => r.group === plan.meta.groupB_name || /^B/i.test(r.group)
+    );
+    return {
+      teachingCount: teaching.length,
+      aCount: aWeeks.length,
+      bCount: bWeeks.length,
+      pairHint: Math.min(aWeeks.length, bWeeks.length) || Math.floor(teaching.length / 2),
+    };
+  }, [plan, calendar]);
 
   if (!isOpen) return null;
 
-  // 1. Handle multiline paste into 1-21 weeks
   const handleApplyPastedText = () => {
     const lines = pastedText
       .split('\n')
@@ -35,14 +60,52 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
       return;
     }
 
-    onBatchUpdateRows((prevRows) =>
-      prevRows.map((row, idx) => ({
-        ...row,
-        courseProgress: lines[idx] !== undefined ? lines[idx] : row.courseProgress,
-      }))
-    );
+    if (pasteMode === 'sequential-21') {
+      onBatchUpdateRows((prevRows) =>
+        prevRows.map((row, idx) => ({
+          ...row,
+          courseProgress: lines[idx] !== undefined ? lines[idx] : row.courseProgress,
+        }))
+      );
+      alert(`已成功將 ${Math.min(lines.length, 21)} 週的課程進度依序填入！`);
+      onClose();
+      return;
+    }
 
-    alert(`已成功將 ${Math.min(lines.length, 21)} 週的課程進度依序填入！`);
+    // A/B 共用：貼半學期一組進度
+    let summary = { topicUsed: 0, skippedWeeks: [] as number[], uncoveredTopics: [] as string[] };
+    onBatchUpdateRows((prevRows) => {
+      const result = applySharedGroupProgress(prevRows, {
+        topics: lines,
+        calendar,
+        dayOfWeek: plan.meta.courseDayOfWeek || '星期四',
+        groupPattern: plan.meta.groupPattern,
+        groupAName: plan.meta.groupA_name,
+        groupBName: plan.meta.groupB_name,
+        fillHolidayExamLabels: true,
+      });
+      summary = {
+        topicUsed: result.topicUsed,
+        skippedWeeks: result.skippedWeeks,
+        uncoveredTopics: result.uncoveredTopics,
+      };
+      return result.rows;
+    });
+
+    const skipText =
+      summary.skippedWeeks.length > 0
+        ? `\n已略過第 ${summary.skippedWeeks.join('、')} 週（放假／段考／自訂工作）`
+        : '';
+    const leftover =
+      summary.uncoveredTopics.length > 0
+        ? `\n尚有 ${summary.uncoveredTopics.length} 項進度未排入（上課週數不足）`
+        : '';
+
+    alert(
+      plan.meta.groupPattern === 'none'
+        ? `已將 ${summary.topicUsed} 項進度填入上課週（略過放假／段考／自訂）。${skipText}${leftover}`
+        : `已將 ${summary.topicUsed} 項進度同步填入 ${plan.meta.groupA_name} 與 ${plan.meta.groupB_name}（同序位顯示相同進度）。${skipText}${leftover}`
+    );
     onClose();
   };
 
@@ -122,64 +185,67 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
         </div>
 
         {/* Modal Tab Options */}
-        <div className="flex border-b border-slate-200 px-6 bg-slate-50/40 gap-5 text-xs font-semibold">
+        <div className="flex border-b border-slate-200 px-6 bg-slate-50/40 gap-5 text-xs font-semibold overflow-x-auto">
           <button
             id="tab-quick-paste"
             type="button"
             onClick={() => setSelectedTool('paste')}
-            className={`py-3 border-b-2 transition-colors ${
+            className={`py-3 border-b-2 transition-colors whitespace-nowrap ${
               selectedTool === 'paste'
                 ? 'border-blue-700 text-blue-700'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            📋 多行批次貼上
+            多行批次貼上
           </button>
           <button
             id="tab-quick-exam"
             type="button"
             onClick={() => setSelectedTool('exam')}
-            className={`py-3 border-b-2 transition-colors ${
+            className={`py-3 border-b-2 transition-colors whitespace-nowrap ${
               selectedTool === 'exam'
                 ? 'border-blue-700 text-blue-700'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            🔴 放假與定期考（紅字自動標記）
+            放假與定期考（紅字）
           </button>
           <button
             id="tab-quick-rotation"
             type="button"
             onClick={() => setSelectedTool('rotation')}
-            className={`py-3 border-b-2 transition-colors ${
+            className={`py-3 border-b-2 transition-colors whitespace-nowrap ${
               selectedTool === 'rotation'
                 ? 'border-blue-700 text-blue-700'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            🔄 分組輪調一鍵套用
+            分組輪調
           </button>
           <button
             id="tab-quick-clear"
             type="button"
             onClick={() => setSelectedTool('clear')}
-            className={`py-3 border-b-2 transition-colors ${
+            className={`py-3 border-b-2 transition-colors whitespace-nowrap ${
               selectedTool === 'clear'
                 ? 'border-rose-600 text-rose-700'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            🧹 清空進度
+            清空進度
           </button>
         </div>
 
         {/* Course info banner */}
-        <div className="px-6 py-2 bg-blue-50/60 border-b border-blue-100 flex items-center justify-between text-xs">
+        <div className="px-6 py-2 bg-blue-50/60 border-b border-blue-100 flex items-center justify-between text-xs gap-2 flex-wrap">
           <span className="text-slate-600">
-            目前編輯課程：<strong className="text-slate-900">{plan.meta.className || '未設定'}・{plan.meta.courseName || '未設定'}</strong>
+            目前編輯課程：
+            <strong className="text-slate-900">
+              {plan.meta.className || '未設定'}・{plan.meta.courseName || '未設定'}
+            </strong>
           </span>
           <span className="text-blue-800 font-bold bg-blue-100/80 px-2.5 py-0.5 rounded border border-blue-200">
-            📅 上課時間：{plan.meta.courseDayOfWeek || '星期四'} {plan.meta.coursePeriod || ''}
+            上課時間：{plan.meta.courseDayOfWeek || '星期四'} {plan.meta.coursePeriod || ''}
           </span>
         </div>
 
@@ -187,19 +253,80 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
         <div className="p-6">
           {selectedTool === 'paste' && (
             <div className="space-y-4">
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-bold text-slate-700">填入方式</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <label
+                    className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      pasteMode === 'shared-ab'
+                        ? 'border-blue-600 bg-blue-50/70'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paste-mode"
+                      className="mt-0.5 accent-blue-700"
+                      checked={pasteMode === 'shared-ab'}
+                      onChange={() => setPasteMode('shared-ab')}
+                    />
+                    <span>
+                      <span className="font-bold text-slate-900 block">A/B 共用進度（建議）</span>
+                      <span className="text-[11px] text-slate-500 leading-relaxed">
+                        只貼一組半學期進度；略過放假／段考／自訂工作後，{plan.meta.groupA_name} 與{' '}
+                        {plan.meta.groupB_name} 同序位顯示相同課程。
+                      </span>
+                    </span>
+                  </label>
+                  <label
+                    className={`flex items-start gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      pasteMode === 'sequential-21'
+                        ? 'border-blue-600 bg-blue-50/70'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paste-mode"
+                      className="mt-0.5 accent-blue-700"
+                      checked={pasteMode === 'sequential-21'}
+                      onChange={() => setPasteMode('sequential-21')}
+                    />
+                    <span>
+                      <span className="font-bold text-slate-900 block">依序填入 21 週</span>
+                      <span className="text-[11px] text-slate-500 leading-relaxed">
+                        一行對應一週（舊版行為），含放假／段考週也會佔一行。
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {pasteMode === 'shared-ab' && (
+                <div className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 leading-relaxed">
+                  目前可排進度約 <strong>{teachingPreview.pairHint}</strong> 項
+                  （{plan.meta.groupA_name} {teachingPreview.aCount} 週／
+                  {plan.meta.groupB_name} {teachingPreview.bCount} 週；已排除放假／段考／自訂）。
+                  若某週要保留自訂內容，請先在進度欄填入「自訂工作」等字樣再貼上。
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  請將 21 週的課程進度文字貼在下方（一行代表一週）：
+                  {pasteMode === 'shared-ab'
+                    ? '請貼上半學期進度（一行一個單元，A/B 會自動共用）：'
+                    : '請將 21 週的課程進度文字貼在下方（一行代表一週）：'}
                 </label>
-                <p className="text-[11px] text-slate-500 mb-2">
-                  例如從 Word、教學計畫書或以前的試算表複製 21 行內容，系統會自動分配至第 1 週到第 21 週。
-                </p>
                 <textarea
                   id="batch-paste-textarea"
                   rows={8}
                   value={pastedText}
                   onChange={(e) => setPastedText(e.target.value)}
-                  placeholder={`工場工安守則與工具介紹\n基礎電路焊接練習\nLED 跑馬燈實作\n中斷控制實驗\n...（最多支援 21 行）`}
+                  placeholder={
+                    pasteMode === 'shared-ab'
+                      ? `器具介紹\n單相感應電動機正反轉\n乾燥桶控制電路\n電動空壓機控制電路\n三相感應電動機降壓起動控制\n三相感應電動機電抗器降壓起動控制`
+                      : `工場工安守則與工具介紹\n基礎電路焊接練習\nLED 跑馬燈實作\n...（最多支援 21 行）`
+                  }
                   className="w-full text-xs font-mono p-3 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 focus:outline-hidden transition-colors"
                 />
               </div>
@@ -218,7 +345,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                   onClick={handleApplyPastedText}
                   className="px-4 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-lg shadow-2xs transition-colors"
                 >
-                  依序填入 21 週
+                  {pasteMode === 'shared-ab' ? '套用 A/B 共用進度' : '依序填入 21 週'}
                 </button>
               </div>
             </div>
@@ -235,13 +362,18 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                   點擊下方按鈕，系統將自動比對行事曆備註，自動於課程進度填寫並以<strong>紅字</strong>醒目呈現：
                 </p>
                 <ul className="list-disc list-inside mt-2 space-y-1.5 text-red-900 font-medium">
-                  <li><strong>國定假日／放假週</strong>：第 4 週（中秋節放假）、第 6 週（國慶日彈性連假放假）、第 18 週（元旦連假放假）</li>
-                  <li><strong>定期考查週</strong>：第 7 週（第一次期中定期考查）、第 14 週（第二次期中定期考查）、第 21 週（期末定期考查）</li>
-                  <li><strong>日常評量欄</strong>：同步自動帶入「第 1 次段考」、「第 2 次段考」與「期末考評量」</li>
+                  <li>
+                    <strong>國定假日／放假週</strong>：第 4 週（中秋節放假）、第 6 週（國慶日彈性連假放假）、第 18
+                    週（元旦連假放假）
+                  </li>
+                  <li>
+                    <strong>定期考查週</strong>：第 7 週（第一次期中定期考查）、第 14 週（第二次期中定期考查）、第 21
+                    週（期末定期考查）
+                  </li>
+                  <li>
+                    <strong>日常評量欄</strong>：同步自動帶入「第 1 次段考」、「第 2 次段考」與「期末考評量」
+                  </li>
                 </ul>
-                <div className="mt-3 p-2 bg-white rounded-md border border-red-200/80 text-[11px] text-slate-600">
-                  💡 說明：填入後進度表中的「放假」與「定期考」文字將以<strong>專業紅字</strong>呈現，列印或另存 PDF 亦保留紅字標記。
-                </div>
               </div>
               <div className="flex justify-end gap-2">
                 <button
@@ -267,7 +399,8 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
           {selectedTool === 'rotation' && (
             <div className="space-y-4 text-xs">
               <p className="text-slate-600">
-                選擇實習工場合作分組的輪調頻率，系統會自動重新計算 21 週的組別代號（{plan.meta.groupA_name} / {plan.meta.groupB_name}）：
+                選擇實習工場合作分組的輪調頻率，系統會自動重新計算 21 週的組別代號（{plan.meta.groupA_name} /{' '}
+                {plan.meta.groupB_name}）：
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button

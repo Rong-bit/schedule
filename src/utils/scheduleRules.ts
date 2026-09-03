@@ -1,4 +1,4 @@
-import { CalendarWeek, SyllabusRow } from '../types';
+import { CalendarWeek, GroupRotationPattern, SyllabusRow } from '../types';
 
 export interface ClassDayEvaluation {
   classDate: Date | null;
@@ -262,4 +262,201 @@ export function alignRowsWithClassWeekday(
 
     return row;
   });
+}
+
+/** 自訂／非正規上課週（貼進度時應略過，不消耗進度項目） */
+export function isCustomWorkProgress(text?: string): boolean {
+  if (!text) return false;
+  return /自訂工作|自訂活動|補課活動|自主學習週|工場整理|設備維修|臨時調整|臨時任務|不排進度/.test(
+    text
+  );
+}
+
+/**
+ * 判斷該週是否應略過進度填入（放假／段考／自訂工作）。
+ * 優先依上課星期精準判斷；若無行事曆則回退關鍵字。
+ */
+export function isSkippedTeachingWeek(
+  row: SyllabusRow,
+  calendar: CalendarWeek[] | undefined,
+  dayOfWeek: string = '星期四'
+): boolean {
+  if (isCustomWorkProgress(row.courseProgress) || isCustomWorkProgress(row.schoolNote)) {
+    return true;
+  }
+
+  const calWeek =
+    calendar?.find((c) => c.week === row.week) ||
+    ({
+      week: row.week,
+      dateRangeText: row.dateRangeText,
+      schoolEvent: row.schoolNote,
+    } as CalendarWeek);
+
+  const evalResult = evaluateClassDay(calWeek, dayOfWeek);
+  if (evalResult.isHoliday || evalResult.isExam) return true;
+
+  // 進度欄已標成放假／段考時也略過
+  if (
+    /放假|連假|中秋|國慶|元旦|寒假開始/.test(row.courseProgress) ||
+    /段考|定期考|期中考|期末考/.test(row.courseProgress)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function isGroupA(group: string, nameA: string): boolean {
+  if (!group) return false;
+  if (group === nameA) return true;
+  return /^A/i.test(group.trim()) || group.includes('A組') || group.includes('甲組');
+}
+
+function isGroupB(group: string, nameB: string): boolean {
+  if (!group) return false;
+  if (group === nameB) return true;
+  return /^B/i.test(group.trim()) || group.includes('B組') || group.includes('乙組');
+}
+
+export interface ApplySharedProgressOptions {
+  topics: string[];
+  calendar?: CalendarWeek[];
+  dayOfWeek?: string;
+  groupPattern: GroupRotationPattern;
+  groupAName?: string;
+  groupBName?: string;
+  /** 是否同步把放假／段考建議文字寫入略過週（預設 true） */
+  fillHolidayExamLabels?: boolean;
+}
+
+export interface ApplySharedProgressResult {
+  rows: SyllabusRow[];
+  topicUsed: number;
+  teachingWeekPairs: number;
+  skippedWeeks: number[];
+  uncoveredTopics: string[];
+}
+
+/**
+ * 貼上「一組半學期進度」：略過放假／段考／自訂工作後，
+ * A、B 對應序位的上課週填入相同進度（僅需輸入一組）。
+ * 全班不分組時，則依上課週序依序填入。
+ */
+export function applySharedGroupProgress(
+  rows: SyllabusRow[],
+  options: ApplySharedProgressOptions
+): ApplySharedProgressResult {
+  const dayOfWeek = options.dayOfWeek || '星期四';
+  const nameA = options.groupAName || 'A組';
+  const nameB = options.groupBName || 'B組';
+  const fillLabels = options.fillHolidayExamLabels !== false;
+  const topics = options.topics.map((t) => t.trim()).filter(Boolean);
+
+  const next = rows.map((r) => ({ ...r }));
+  const skippedWeeks: number[] = [];
+  const teachingIndexes: number[] = [];
+
+  next.forEach((row, idx) => {
+    if (isSkippedTeachingWeek(row, options.calendar, dayOfWeek)) {
+      skippedWeeks.push(row.week);
+      if (fillLabels && options.calendar) {
+        const calWeek = options.calendar.find((c) => c.week === row.week);
+        if (calWeek) {
+          const evalResult = evaluateClassDay(calWeek, dayOfWeek);
+          if (
+            (evalResult.isHoliday || evalResult.isExam) &&
+            !isCustomWorkProgress(row.courseProgress)
+          ) {
+            next[idx] = {
+              ...row,
+              courseProgress: evalResult.suggestedProgress || row.courseProgress,
+              assessment: evalResult.suggestedAssessment || row.assessment,
+              assignment:
+                evalResult.suggestedAssignment &&
+                (!row.assignment || row.assignment === '無')
+                  ? evalResult.suggestedAssignment
+                  : row.assignment,
+            };
+          }
+        }
+      }
+      return;
+    }
+    teachingIndexes.push(idx);
+  });
+
+  // 全班：上課週依序填 topics
+  if (options.groupPattern === 'none') {
+    let used = 0;
+    for (const idx of teachingIndexes) {
+      if (used >= topics.length) break;
+      next[idx] = { ...next[idx], courseProgress: topics[used] };
+      used += 1;
+    }
+    return {
+      rows: next,
+      topicUsed: used,
+      teachingWeekPairs: used,
+      skippedWeeks,
+      uncoveredTopics: topics.slice(used),
+    };
+  }
+
+  // 有分組：A、B 各取上課週清單，同序位填相同進度
+  const aIndexes = teachingIndexes.filter((idx) =>
+    isGroupA(next[idx].group, nameA)
+  );
+  const bIndexes = teachingIndexes.filter((idx) =>
+    isGroupB(next[idx].group, nameB)
+  );
+
+  // 若組別欄位異常導致一邊為空，退回「成對相鄰上課週」策略
+  const pairCount =
+    aIndexes.length > 0 && bIndexes.length > 0
+      ? Math.min(aIndexes.length, bIndexes.length, topics.length)
+      : 0;
+
+  let used = 0;
+  if (pairCount > 0) {
+    for (let i = 0; i < pairCount; i += 1) {
+      const topic = topics[i];
+      next[aIndexes[i]] = { ...next[aIndexes[i]], courseProgress: topic };
+      next[bIndexes[i]] = { ...next[bIndexes[i]], courseProgress: topic };
+      used += 1;
+    }
+    // 若某一組上課週較多，剩餘週次繼續用後續 topics（避免空白）
+    const longer = aIndexes.length >= bIndexes.length ? aIndexes : bIndexes;
+    for (let i = pairCount; i < longer.length && used < topics.length; i += 1) {
+      next[longer[i]] = { ...next[longer[i]], courseProgress: topics[used] };
+      used += 1;
+    }
+  } else {
+    // 無有效 A/B：兩兩配對相鄰上課週
+    for (let i = 0; i + 1 < teachingIndexes.length && used < topics.length; i += 2) {
+      const topic = topics[used];
+      next[teachingIndexes[i]] = {
+        ...next[teachingIndexes[i]],
+        courseProgress: topic,
+      };
+      next[teachingIndexes[i + 1]] = {
+        ...next[teachingIndexes[i + 1]],
+        courseProgress: topic,
+      };
+      used += 1;
+    }
+    if (teachingIndexes.length % 2 === 1 && used < topics.length) {
+      const lastIdx = teachingIndexes[teachingIndexes.length - 1];
+      next[lastIdx] = { ...next[lastIdx], courseProgress: topics[used] };
+      used += 1;
+    }
+  }
+
+  return {
+    rows: next,
+    topicUsed: used,
+    teachingWeekPairs: used,
+    skippedWeeks,
+    uncoveredTopics: topics.slice(used),
+  };
 }

@@ -380,6 +380,7 @@ export default function App() {
         isOpen={isQuickFillOpen}
         onClose={() => setIsQuickFillOpen(false)}
         plan={currentPlan}
+        calendar={calendar}
         onBatchUpdateRows={handleBatchUpdateRows}
         onApplyRotation={handleApplyRotation}
       />

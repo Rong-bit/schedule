@@ -41,7 +41,7 @@ export const GuideTab: React.FC = () => {
             </div>
             <h4 className="font-bold text-slate-900 text-sm">填寫預定實習課程進度</h4>
             <p className="text-slate-600 leading-relaxed">
-              在表格中央的「預定實習課程進度」欄位直接輸入，或點擊頂部「快速填寫小工具」一鍵貼上 21 週文字與標註段考週。
+              在表格中央的「預定實習課程進度」欄位直接輸入，或點擊「快速填寫」貼上半學期進度：系統會略過放假／段考／自訂工作，並讓 A、B 兩組同序位顯示相同課程。
             </p>
           </div>
 
