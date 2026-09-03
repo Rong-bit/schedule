@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CalendarWeek, GroupRotationPattern, PlanMetadata, SyllabusPlan, SyllabusRow } from './types';
-import { DEFAULT_CALENDAR_115_1, DEFAULT_META, SAMPLE_PRESETS, SAMPLE_PROGRESS_MICROPROCESSOR, createDefaultSyllabusRows, getCalculatedGroup, parseGroupSequenceText } from './data/defaultCalendar';
+import { DEFAULT_CALENDAR_115_1, DEFAULT_META, SAMPLE_PRESETS, getCalculatedGroup, parseGroupSequenceText } from './data/defaultCalendar';
 import { alignRowsWithClassWeekday, applySharedGroupProgress } from './utils/scheduleRules';
 import { Header } from './components/Header';
 import { MetaEditor } from './components/MetaEditor';
@@ -127,8 +127,7 @@ export default function App() {
           updatedRows = alignRowsWithClassWeekday(
             p.rows,
             calendar,
-            updatedMeta.courseDayOfWeek,
-            SAMPLE_PROGRESS_MICROPROCESSOR
+            updatedMeta.courseDayOfWeek
           );
         }
 
@@ -293,7 +292,11 @@ export default function App() {
         });
         return {
           ...p,
-          rows: syncedRows,
+          rows: alignRowsWithClassWeekday(
+            syncedRows,
+            updatedCalendar,
+            p.meta.courseDayOfWeek || '星期四'
+          ),
           updatedAt: Date.now(),
         };
       })

@@ -332,7 +332,13 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
                 // 計算該週實習課的上課日與放假/段考命中評估
                 const calWeek = calendar?.find((c) => c.week === row.week);
                 const evalResult = evaluateClassDay(
-                  calWeek || { week: row.week, dateRangeText: row.dateRangeText, schoolEvent: row.schoolNote },
+                  {
+                    week: row.week,
+                    dateRangeText: row.dateRangeText,
+                    startDate: calWeek?.startDate,
+                    endDate: calWeek?.endDate,
+                    schoolEvent: row.schoolNote || calWeek?.schoolEvent,
+                  },
                   meta.courseDayOfWeek || '星期四'
                 );
 
@@ -344,7 +350,6 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
                 const isHolidayRow = evalResult.isHoliday || isProgressHoliday;
                 const isExamRow = evalResult.isExam || isProgressExam;
                 const shouldShowRed = highlightRedMode && (isHolidayRow || isExamRow);
-                const suggestion = getAutoProgressSuggestion(row, calWeek, meta.courseDayOfWeek || '星期四');
 
                 return (
                   <tr
@@ -384,13 +389,7 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
                           }`}
                         >
                           {row.courseProgress || (
-                            suggestion ? (
-                              <span className="text-red-500/80 font-semibold print:text-red-600 italic">
-                                【{suggestion.isHoliday ? '放假' : '定期考'}】{suggestion.text}
-                              </span>
-                            ) : (
-                              <span className="text-slate-300 italic print:hidden">（未填寫）</span>
-                            )
+                            <span className="text-slate-300 italic print:hidden"></span>
                           )}
                         </div>
                       ) : (
@@ -401,44 +400,13 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
                             rows={1}
                             value={row.courseProgress}
                             onChange={(e) => onRowChange(index, 'courseProgress', e.target.value)}
-                            placeholder={
-                              suggestion
-                                ? `依${meta.courseDayOfWeek || '星期四'}建議：${suggestion.text}`
-                                : isExamWeek
-                                ? row.week === 7
-                                  ? '例如：第 1 次期中考（技能實作評量與學科測驗）'
-                                  : row.week === 14
-                                  ? '例如：第 2 次期中考（成品驗收與學科測驗）'
-                                  : '例如：期末考查（實習總驗收與工安保養）'
-                                : `請輸入第 ${row.week} 週實習單元或進度`
-                            }
+                            placeholder=""
                             className={`print-clean w-full min-h-[30px] sm:min-h-[28px] px-2 py-1 text-xs sm:text-[13px] border border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:bg-white rounded-md transition-all resize-y leading-relaxed focus:outline-hidden ${
                               shouldShowRed
                                 ? 'text-red-600 print-red font-bold placeholder:text-red-300'
                                 : 'text-slate-900'
                             }`}
                           />
-
-                          {/* 依上課日檢測放假或段考，若尚未填入對應內容，提供一鍵快速帶入晶片鈕 */}
-                          {suggestion && row.courseProgress !== suggestion.text && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onRowChange(index, 'courseProgress', suggestion.text);
-                              }}
-                              className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded font-bold transition-colors shadow-2xs print:hidden cursor-pointer border ${
-                                suggestion.isHoliday
-                                  ? 'text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-200'
-                                  : 'text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200'
-                              }`}
-                              title={`點擊依「${meta.courseDayOfWeek || '星期四'}」上課日帶入紅字進度`}
-                            >
-                              <span className={`w-1.5 h-1.5 rounded-full ${suggestion.isHoliday ? 'bg-rose-600' : 'bg-purple-600'}`}></span>
-                              <span>
-                                帶入{suggestion.isHoliday ? '放假' : '段考'}：「{suggestion.text.length > 16 ? suggestion.text.slice(0, 16) + '...' : suggestion.text}」
-                              </span>
-                            </button>
-                          )}
                         </div>
                       )}
                     </td>
@@ -540,7 +508,7 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
                           type="text"
                           value={row.customNote || ''}
                           onChange={(e) => onRowChange(index, 'customNote', e.target.value)}
-                          placeholder={hasSchoolNote ? '+ 教師補充備註' : '備註說明'}
+                          placeholder=""
                           className="print-clean w-full text-[11px] text-slate-700 print:text-black border border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-md px-1.5 py-0.5 focus:outline-hidden transition-all"
                         />
                       )}

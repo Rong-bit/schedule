@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Sparkles, X, AlertTriangle } from 'lucide-react';
 import { CalendarWeek, SyllabusPlan, GroupRotationPattern } from '../types';
-import { isSkippedTeachingWeek } from '../utils/scheduleRules';
+import { isSkippedTeachingWeek, alignRowsWithClassWeekday } from '../utils/scheduleRules';
 import { parseGroupSequenceText } from '../data/defaultCalendar';
 
 interface QuickFillModalProps {
@@ -135,36 +135,9 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
   // 2. Mark exam & holiday weeks from calendar remarks
   const handleMarkHolidaysAndExams = () => {
     onBatchUpdateRows((prevRows) =>
-      prevRows.map((row) => {
-        const note = row.schoolNote || '';
-        let newProgress = row.courseProgress;
-
-        // Exams
-        if (row.week === 7 || /第\s*1\s*次期中|第一次期中|第一次段考|第1次段考/.test(note)) {
-          newProgress = row.courseProgress || '第一次期中定期考查（技能實作評量與學科測驗）';
-        } else if (row.week === 14 || /第\s*2\s*次期中|第二次期中|第二次段考|第2次段考/.test(note)) {
-          newProgress = row.courseProgress || '第二次期中定期考查（實習成品驗收與專業測驗）';
-        } else if (row.week === 21 || /期末考|期末定期考|期末段考/.test(note)) {
-          newProgress = row.courseProgress || '期末定期考查（實習總驗收與工安保養）';
-        }
-        // Holidays from calendar
-        else if (/中秋/.test(note)) {
-          newProgress = row.courseProgress || '中秋節放假';
-        } else if (/國慶|雙十/.test(note)) {
-          newProgress = row.courseProgress || '國慶日彈性連假放假';
-        } else if (/元旦/.test(note)) {
-          newProgress = row.courseProgress || '元旦連假放假';
-        } else if (/放假|連假|停課/.test(note)) {
-          newProgress = row.courseProgress || `${note}（放假）`;
-        }
-
-        return {
-          ...row,
-          courseProgress: newProgress,
-        };
-      })
+      alignRowsWithClassWeekday(prevRows, calendar || [], plan.meta.courseDayOfWeek || '星期四')
     );
-    alert('已成功將行事曆中之「放假」與「段考／定期考」自動填入課程進度，並以紅字醒目顯示！');
+    alert('已依上課日將「放假」或「第Ｎ次定期考查」填入進度；未碰到該日的週次維持空白。');
     onClose();
   };
 
