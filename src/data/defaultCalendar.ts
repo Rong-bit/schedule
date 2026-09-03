@@ -195,7 +195,7 @@ export const DEFAULT_META: PlanMetadata = {
 // Calculate rotation group for a given week
 export function getCalculatedGroup(
   week: number,
-  pattern: 'none' | 'alternate-2' | 'alternate-1' | 'alternate-3' | 'half-semester' | 'custom',
+  pattern: 'none' | 'alternate-2' | 'alternate-1' | 'alternate-3' | 'aabbbb' | 'half-semester' | 'custom',
   nameA: string = 'A組',
   nameB: string = 'B組',
   sequence?: string[],
@@ -222,6 +222,12 @@ export function getCalculatedGroup(
     // Week 1-2: A, Week 3-4: B, Week 5-6: A...
     const block = Math.floor((week - 1) / 2);
     return (block % 2 === 0) ? nameA : nameB;
+  }
+  if (pattern === 'aabbbb') {
+    // 仍以 2 週為單位：AA 後接兩個 BB（第 5–6 週維持 B），再換回 A
+    // 1-2 A, 3-6 B, 7-8 A, 9-12 B, ...
+    const pos = (week - 1) % 6;
+    return pos < 2 ? nameA : nameB;
   }
   if (pattern === 'alternate-3') {
     // Alternate every 3 weeks: Week 1-3: A, Week 4-6: B...

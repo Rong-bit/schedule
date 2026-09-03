@@ -485,6 +485,20 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                   </div>
                 </button>
                 <button
+                  id="rotation-opt-aabbbb"
+                  type="button"
+                  onClick={() => {
+                    onApplyRotation('aabbbb');
+                    onClose();
+                  }}
+                  className="p-3 text-left border border-slate-200 hover:border-blue-600 hover:bg-blue-50/50 rounded-lg transition-all"
+                >
+                  <div className="font-bold text-slate-800">2 週 A、4 週 B 循環</div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    第 1–2 週 A，第 3–6 週 B（第 5–6 週仍為 B），第 7 週再換 A
+                  </div>
+                </button>
+                <button
                   id="rotation-opt-half"
                   type="button"
                   onClick={() => {
