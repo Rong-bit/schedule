@@ -15,7 +15,12 @@ import {
 interface MetaEditorProps {
   meta: PlanMetadata;
   onChange: (updated: Partial<PlanMetadata>) => void;
-  onApplyRotation: (pattern: GroupRotationPattern, nameA?: string, nameB?: string) => void;
+  onApplyRotation: (
+    pattern: GroupRotationPattern,
+    nameA?: string,
+    nameB?: string,
+    sequence?: string[]
+  ) => void;
 }
 
 const COMMON_DEPARTMENTS = ['資訊科', '電子科', '電機科', '機械科', '製圖科', '冷凍科', '化工科', '建築科'];
@@ -126,9 +131,14 @@ export const MetaEditor: React.FC<MetaEditorProps> = ({
               <option value="alternate-1">每 1 週輪調 (單雙週交替)</option>
               <option value="alternate-3">每 3 週輪調</option>
               <option value="none">全班上課 (不分組)</option>
-              <option value="custom">自訂個別週次</option>
+              <option value="custom">自訂序（可貼 a/a/b/b…）</option>
             </select>
           </div>
+          {meta.groupPattern === 'custom' && (
+            <p className="w-full text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+              已選自訂分組。請開啟「智慧填寫小工具 → 分組輪調」，貼上每週 a / b 清單套用。
+            </p>
+          )}
 
           <button
             id="toggle-meta-details-btn"

@@ -197,9 +197,16 @@ export function getCalculatedGroup(
   week: number,
   pattern: 'none' | 'alternate-2' | 'alternate-1' | 'alternate-3' | 'custom',
   nameA: string = 'A組',
-  nameB: string = 'B組'
+  nameB: string = 'B組',
+  sequence?: string[]
 ): string {
   if (pattern === 'none') return '全班';
+  if (pattern === 'custom') {
+    if (sequence && sequence.length > 0) {
+      return sequence[week - 1] ?? sequence[sequence.length - 1];
+    }
+    return nameA;
+  }
   if (pattern === 'alternate-1') {
     // Alternate every 1 week: 1->A, 2->B, 3->A, 4->B
     return (week % 2 === 1) ? nameA : nameB;
@@ -216,6 +223,39 @@ export function getCalculatedGroup(
     return (block % 2 === 0) ? nameA : nameB;
   }
   return nameA;
+}
+
+/** 解析自訂分組清單（一行一週）：a / A / A組 / b / B組 / 全班 */
+export function parseGroupSequenceLines(
+  text: string,
+  nameA: string = 'A組',
+  nameB: string = 'B組'
+): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const normalized = line.replace(/\s+/g, '');
+      if (/全班|全體|不分組/i.test(normalized)) return '全班';
+      if (/^(b|B|乙)/.test(normalized) || /B組|乙組/.test(normalized)) return nameB;
+      if (/^(a|A|甲)/.test(normalized) || /A組|甲組/.test(normalized)) return nameA;
+      // 純數字或其他：預設 A
+      return nameA;
+    });
+}
+
+/** 將自訂序套用到 21 週；不足的週次保留原組別或沿用最後一項 */
+export function applyGroupSequenceToRows(
+  rows: { week: number; group: string }[],
+  sequence: string[],
+  fallbackGroup: string = 'A組'
+): string[] {
+  return rows.map((row, idx) => {
+    if (sequence[idx] !== undefined) return sequence[idx];
+    if (sequence.length > 0) return sequence[sequence.length - 1];
+    return row.group || fallbackGroup;
+  });
 }
 
 export const SAMPLE_PROGRESS_MICROPROCESSOR = [

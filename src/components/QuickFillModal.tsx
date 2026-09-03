@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Sparkles, X, AlertTriangle } from 'lucide-react';
 import { CalendarWeek, SyllabusPlan, GroupRotationPattern } from '../types';
 import { applySharedGroupProgress, isSkippedTeachingWeek } from '../utils/scheduleRules';
+import { parseGroupSequenceLines } from '../data/defaultCalendar';
 
 interface QuickFillModalProps {
   isOpen: boolean;
@@ -9,7 +10,12 @@ interface QuickFillModalProps {
   plan: SyllabusPlan;
   calendar?: CalendarWeek[];
   onBatchUpdateRows: (updater: (rows: SyllabusPlan['rows']) => SyllabusPlan['rows']) => void;
-  onApplyRotation: (pattern: GroupRotationPattern) => void;
+  onApplyRotation: (
+    pattern: GroupRotationPattern,
+    nameA?: string,
+    nameB?: string,
+    sequence?: string[]
+  ) => void;
 }
 
 type PasteMode = 'shared-ab' | 'sequential-21';
@@ -23,6 +29,11 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
   onApplyRotation,
 }) => {
   const [pastedText, setPastedText] = useState('');
+  const [groupSequenceText, setGroupSequenceText] = useState(
+    () =>
+      plan.meta.groupSequence?.map((g) => (g.includes('B') || g.includes('乙') ? 'b' : g === '全班' ? '全班' : 'a')).join('\n') ||
+      'a\na\nb\nb\nb\nb\na\na\na\na'
+  );
   const [selectedTool, setSelectedTool] = useState<'paste' | 'exam' | 'rotation' | 'clear'>('paste');
   const defaultPasteMode: PasteMode =
     plan.meta.groupPattern === 'none' ? 'sequential-21' : 'shared-ab';
@@ -459,6 +470,49 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                     整學期為全體同學共同進度
                   </div>
                 </button>
+              </div>
+
+              <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/60 space-y-2">
+                <div className="font-bold text-amber-950">自訂分組序（一行一週）</div>
+                <p className="text-[11px] text-amber-900/90 leading-relaxed">
+                  可貼上 a / b（或 A組 / B組），例如：a、a、b、b、b、b、a、a… 系統會依序填入第 1～21 週。
+                </p>
+                <textarea
+                  id="custom-group-sequence-textarea"
+                  rows={8}
+                  value={groupSequenceText}
+                  onChange={(e) => setGroupSequenceText(e.target.value)}
+                  placeholder={'a\na\nb\nb\nb\nb\na\na\na\na'}
+                  className="w-full text-xs font-mono p-2.5 border border-amber-300 rounded-lg bg-white focus:ring-1 focus:ring-amber-600 focus:border-amber-600 focus:outline-hidden"
+                />
+                <div className="flex justify-end">
+                  <button
+                    id="apply-custom-group-sequence-btn"
+                    type="button"
+                    onClick={() => {
+                      const sequence = parseGroupSequenceLines(
+                        groupSequenceText,
+                        plan.meta.groupA_name,
+                        plan.meta.groupB_name
+                      );
+                      if (sequence.length === 0) {
+                        alert('請先貼上 a / b 分組清單（一行一週）');
+                        return;
+                      }
+                      onApplyRotation(
+                        'custom',
+                        plan.meta.groupA_name,
+                        plan.meta.groupB_name,
+                        sequence
+                      );
+                      alert(`已套用自訂分組 ${Math.min(sequence.length, 21)} 週（不足週次沿用最後一組）`);
+                      onClose();
+                    }}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-amber-700 hover:bg-amber-800 rounded-lg shadow-2xs transition-colors"
+                  >
+                    套用自訂 a/b 序
+                  </button>
+                </div>
               </div>
             </div>
           )}
