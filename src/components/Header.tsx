@@ -13,8 +13,8 @@ import { SyllabusPlan } from '../types';
 import { SAMPLE_PRESETS } from '../data/defaultCalendar';
 
 interface HeaderProps {
-  currentTab: 'syllabus' | 'calendar' | 'guide';
-  setCurrentTab: (tab: 'syllabus' | 'calendar' | 'guide') => void;
+  currentTab: 'syllabus' | 'calendar';
+  setCurrentTab: (tab: 'syllabus' | 'calendar') => void;
   onOpenQuickFill: () => void;
   onOpenSheetsModal: () => void;
   onPrint: () => void;
@@ -127,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={onOpenSheetsModal}
               className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-emerald-50/80 text-emerald-900 border border-emerald-200/80 hover:bg-emerald-100/80 transition-all shadow-2xs hover:shadow-xs"
-              title="匯出至 Google 試算表 / 查看公式範本"
+              title="複製進度表並貼到 Google 試算表"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
               <span>Google 試算表匯出</span>
@@ -178,19 +178,6 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-[10px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.2 rounded-md font-mono font-medium">
               21週
             </span>
-          </button>
-
-          <button
-            id="tab-guide"
-            type="button"
-            onClick={() => setCurrentTab('guide')}
-            className={`py-2.5 px-3 rounded-t-lg border-b-2 flex items-center gap-2 whitespace-nowrap transition-all ${
-              currentTab === 'guide'
-                ? 'border-blue-700 text-blue-700 font-bold bg-blue-50/40'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            <span>使用說明與試算表公式</span>
           </button>
         </div>
       </div>

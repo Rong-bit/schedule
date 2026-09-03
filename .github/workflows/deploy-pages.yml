@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # 每日 02:00（台灣）重建，刷新學校日曆快取
+    - cron: '0 18 * * *'
 
 permissions:
   contents: read

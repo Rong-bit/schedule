@@ -6,7 +6,6 @@ import { Header } from './components/Header';
 import { MetaEditor } from './components/MetaEditor';
 import { SyllabusTable } from './components/SyllabusTable';
 import { CalendarManager } from './components/CalendarManager';
-import { GuideTab } from './components/GuideTab';
 import { QuickFillModal } from './components/QuickFillModal';
 import { ExportSheetsModal } from './components/ExportSheetsModal';
 import { Check, Sparkles, Printer, FileSpreadsheet, Info, X } from 'lucide-react';
@@ -27,7 +26,7 @@ function withBlankHomeworkColumns(plans: SyllabusPlan[]): SyllabusPlan[] {
 }
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<'syllabus' | 'calendar' | 'guide'>('syllabus');
+  const [currentTab, setCurrentTab] = useState<'syllabus' | 'calendar'>('syllabus');
   const [calendar, setCalendar] = useState<CalendarWeek[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CALENDAR);
@@ -439,10 +438,6 @@ export default function App() {
           />
         )}
 
-        {/* Tab 3: System Guide & Google Sheets Formula Comparison */}
-        {currentTab === 'guide' && (
-          <GuideTab />
-        )}
       </main>
 
       {/* Screen-only Footer */}
@@ -452,14 +447,6 @@ export default function App() {
             高雄市立中正高工 115 學年度第 1 學期實習教學及作業預定進度表工具
           </span>
           <div className="flex items-center gap-4 text-slate-600 font-semibold">
-            <button
-              type="button"
-              onClick={() => setIsSheetsModalOpen(true)}
-              className="hover:text-emerald-700 transition-colors"
-            >
-              Google 試算表公式對照
-            </button>
-            <span className="text-slate-300">•</span>
             <button
               type="button"
               onClick={handlePrint}

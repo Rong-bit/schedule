@@ -188,10 +188,6 @@ function eventOverlapsWeek(event: GoogleCalendarEvent, week: CalendarWeek): bool
   );
 }
 
-function publicIcsUrl(calendarId: string): string {
-  return `https://calendar.google.com/calendar/ical/${encodeURIComponent(calendarId)}/public/basic.ics`;
-}
-
 function looksLikeIcs(text: string): boolean {
   return text.includes('BEGIN:VCALENDAR');
 }
@@ -203,26 +199,26 @@ function isLocalDevHost(): boolean {
 }
 
 async function tryFetchIcs(url: string): Promise<string | null> {
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) return null;
   const text = await res.text();
   return looksLikeIcs(text) ? text : null;
 }
 
-/** 本機走 Vite 代理；GitHub Pages 改抓公開 ICS（必要時經 CORS 代理） */
+function cachedIcsUrl(calendarId: string): string {
+  const base = import.meta.env.BASE_URL || '/';
+  return `${base}gcal-cache/${encodeURIComponent(calendarId)}.ics`;
+}
+
+/** 本機走 Vite 代理；GitHub Pages 讀建置時快取（瀏覽器無法直連 Google ICS） */
 async function fetchIcsViaProxy(calendarId: string): Promise<string> {
-  const icsUrl = publicIcsUrl(calendarId);
   const urls: string[] = [];
 
   if (isLocalDevHost()) {
     urls.push(`/api/gcal-ics?id=${encodeURIComponent(calendarId)}`);
   }
 
-  urls.push(
-    icsUrl,
-    `https://corsproxy.io/?${encodeURIComponent(icsUrl)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(icsUrl)}`
-  );
+  urls.push(cachedIcsUrl(calendarId));
 
   for (const url of urls) {
     try {

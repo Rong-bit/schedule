@@ -239,7 +239,7 @@ export const CalendarManager: React.FC<CalendarManagerProps> = ({
               <span>同步中正高工 Google 日曆 → 備註欄</span>
             </div>
             <p className="text-[11px] text-slate-600 leading-relaxed max-w-3xl">
-              讀取學校公開行事曆（教務處、學務處、實習處、國定假日等），依各週起訖日期寫入「學校行事備註」，並自動帶入教學進度表 G 欄。
+              讀取學校公開行事曆（教務處、學務處、實習處、國定假日等），依各週起訖日期寫入「學校行事備註」，並自動帶入教學進度表 G 欄。線上版使用網站更新時下載的日曆快取；本機開發則即時抓取。
             </p>
           </div>
           <a
