@@ -24,6 +24,7 @@ export type GroupRotationPattern =
   | 'alternate-1'
   | 'alternate-3'
   | 'aabbbb'
+  | 'bbaaaa'
   | 'half-semester'
   | 'custom';
 

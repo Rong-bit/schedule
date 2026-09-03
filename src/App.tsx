@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CalendarWeek, GroupRotationPattern, PlanMetadata, SyllabusPlan, SyllabusRow } from './types';
-import { DEFAULT_CALENDAR_115_1, DEFAULT_META, SAMPLE_PRESETS, getCalculatedGroup, parseGroupSequenceText } from './data/defaultCalendar';
-import { alignRowsWithClassWeekday, applySharedGroupProgress } from './utils/scheduleRules';
+import { DEFAULT_CALENDAR_115_1, DEFAULT_META, SAMPLE_PRESETS, parseGroupSequenceText } from './data/defaultCalendar';
+import { alignRowsWithClassWeekday, applySharedGroupProgress, assignGroupsSkippingBreaks } from './utils/scheduleRules';
 import { Header } from './components/Header';
 import { MetaEditor } from './components/MetaEditor';
 import { SyllabusTable } from './components/SyllabusTable';
@@ -13,6 +13,23 @@ import { Check, Sparkles, Printer, FileSpreadsheet, Info, X } from 'lucide-react
 const STORAGE_KEY_PLANS = 'zzvs_syllabus_plans_v1';
 const STORAGE_KEY_CALENDAR = 'zzvs_calendar_115_1_v1';
 const STORAGE_KEY_EMPTY_HW_COLS = 'zzvs_empty_assignment_assessment_v1';
+
+function withTeachingWeekGroups(plan: SyllabusPlan, cal: CalendarWeek[]): SyllabusPlan {
+  const day = plan.meta.courseDayOfWeek || '星期四';
+  const rows = alignRowsWithClassWeekday(plan.rows, cal, day);
+  return {
+    ...plan,
+    rows: assignGroupsSkippingBreaks(
+      rows,
+      cal,
+      plan.meta.groupPattern,
+      plan.meta.groupA_name,
+      plan.meta.groupB_name,
+      day,
+      plan.meta.groupSequence
+    ),
+  };
+}
 
 function withBlankHomeworkColumns(plans: SyllabusPlan[]): SyllabusPlan[] {
   return plans.map((p) => ({
@@ -55,14 +72,7 @@ export default function App() {
             plans = withBlankHomeworkColumns(plans);
             localStorage.setItem(STORAGE_KEY_EMPTY_HW_COLS, '1');
           }
-          const aligned = plans.map((p) => ({
-            ...p,
-            rows: alignRowsWithClassWeekday(
-              p.rows,
-              cal,
-              p.meta.courseDayOfWeek || '星期四'
-            ),
-          }));
+          const aligned = plans.map((p) => withTeachingWeekGroups(p, cal));
           localStorage.setItem(STORAGE_KEY_PLANS, JSON.stringify(aligned));
           return aligned;
         }
@@ -70,7 +80,7 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
-    return [SAMPLE_PRESETS[0].plan()];
+    return [withTeachingWeekGroups(SAMPLE_PRESETS[0].plan(), cal)];
   });
 
   const [currentPlanId, setCurrentPlanId] = useState<string>(() => {
@@ -111,13 +121,26 @@ export default function App() {
       prev.map((p) => {
         if (p.meta.id !== currentPlan.meta.id) return p;
         const updatedRows = [...p.rows];
-        updatedRows[weekIndex] = {
+        const nextRow = {
           ...updatedRows[weekIndex],
           [field]: value,
         };
+        updatedRows[weekIndex] = nextRow;
+        const rows =
+          field === 'courseProgress' || field === 'schoolNote'
+            ? assignGroupsSkippingBreaks(
+                updatedRows,
+                calendar,
+                p.meta.groupPattern,
+                p.meta.groupA_name,
+                p.meta.groupB_name,
+                p.meta.courseDayOfWeek || '星期四',
+                p.meta.groupSequence
+              )
+            : updatedRows;
         return {
           ...p,
-          rows: updatedRows,
+          rows,
           updatedAt: Date.now(),
         };
       })
@@ -143,6 +166,15 @@ export default function App() {
             p.rows,
             calendar,
             updatedMeta.courseDayOfWeek
+          );
+          updatedRows = assignGroupsSkippingBreaks(
+            updatedRows,
+            calendar,
+            p.meta.groupPattern,
+            p.meta.groupA_name,
+            p.meta.groupB_name,
+            updatedMeta.courseDayOfWeek,
+            p.meta.groupSequence
           );
         }
 
@@ -189,22 +221,23 @@ export default function App() {
               : p.meta.groupSequence
             : undefined;
 
-        const updatedRows = p.rows.map((r) => {
-          if (pattern === 'custom' && (!resolvedSequence || resolvedSequence.length === 0)) {
-            return r;
-          }
+        if (pattern === 'custom' && (!resolvedSequence || resolvedSequence.length === 0)) {
           return {
-            ...r,
-            group: getCalculatedGroup(
-              r.week,
-              pattern,
-              nameA,
-              nameB,
-              resolvedSequence,
-              p.rows.length || 21
-            ),
+            ...p,
+            meta: { ...p.meta, groupPattern: pattern, groupA_name: nameA, groupB_name: nameB },
+            updatedAt: Date.now(),
           };
-        });
+        }
+
+        const updatedRows = assignGroupsSkippingBreaks(
+          p.rows,
+          calendar,
+          pattern,
+          nameA,
+          nameB,
+          p.meta.courseDayOfWeek || '星期四',
+          resolvedSequence
+        );
 
         return {
           ...p,
@@ -239,10 +272,15 @@ export default function App() {
         groupPattern: 'custom',
         groupSequence: sequence,
       };
-      rows = rows.map((r) => ({
-        ...r,
-        group: getCalculatedGroup(r.week, 'custom', nameA, nameB, sequence),
-      }));
+      rows = assignGroupsSkippingBreaks(
+        rows,
+        calendar,
+        'custom',
+        nameA,
+        nameB,
+        nextMeta.courseDayOfWeek || '星期四',
+        sequence
+      );
     }
 
     const result = applySharedGroupProgress(rows, {
@@ -280,9 +318,18 @@ export default function App() {
     setPlansList((prev) =>
       prev.map((p) => {
         if (p.meta.id !== currentPlan.meta.id) return p;
+        const updatedRows = updater(p.rows);
         return {
           ...p,
-          rows: updater(p.rows),
+          rows: assignGroupsSkippingBreaks(
+            updatedRows,
+            calendar,
+            p.meta.groupPattern,
+            p.meta.groupA_name,
+            p.meta.groupB_name,
+            p.meta.courseDayOfWeek || '星期四',
+            p.meta.groupSequence
+          ),
           updatedAt: Date.now(),
         };
       })
@@ -305,12 +352,21 @@ export default function App() {
             schoolNote: calItem.schoolEvent,
           };
         });
+        const aligned = alignRowsWithClassWeekday(
+          syncedRows,
+          updatedCalendar,
+          p.meta.courseDayOfWeek || '星期四'
+        );
         return {
           ...p,
-          rows: alignRowsWithClassWeekday(
-            syncedRows,
+          rows: assignGroupsSkippingBreaks(
+            aligned,
             updatedCalendar,
-            p.meta.courseDayOfWeek || '星期四'
+            p.meta.groupPattern,
+            p.meta.groupA_name,
+            p.meta.groupB_name,
+            p.meta.courseDayOfWeek || '星期四',
+            p.meta.groupSequence
           ),
           updatedAt: Date.now(),
         };
@@ -323,14 +379,13 @@ export default function App() {
     const preset = SAMPLE_PRESETS[presetIndex];
     if (!preset) return;
     const newPlan = preset.plan();
-    // Update dates with current calendar
     newPlan.rows = newPlan.rows.map((r, i) => ({
       ...r,
       dateRangeText: calendar[i]?.dateRangeText || r.dateRangeText,
       schoolNote: calendar[i]?.schoolEvent || r.schoolNote,
     }));
 
-    setPlansList((prev) => [newPlan, ...prev]);
+    setPlansList((prev) => [withTeachingWeekGroups(newPlan, calendar), ...prev]);
     setCurrentPlanId(newPlan.meta.id);
   };
 
@@ -344,16 +399,23 @@ export default function App() {
         className: '新班級',
         courseName: '新實習科目',
       },
-      rows: calendar.map((cal) => ({
-        week: cal.week,
-        dateRangeText: cal.dateRangeText,
-        courseProgress: '',
-        group: getCalculatedGroup(cal.week, 'alternate-2'),
-        assignment: '',
-        assessment: '',
-        schoolNote: cal.schoolEvent,
-        customNote: '',
-      })),
+      rows: assignGroupsSkippingBreaks(
+        calendar.map((cal) => ({
+          week: cal.week,
+          dateRangeText: cal.dateRangeText,
+          courseProgress: '',
+          group: '—',
+          assignment: '',
+          assessment: '',
+          schoolNote: cal.schoolEvent,
+          customNote: '',
+        })),
+        calendar,
+        'alternate-2',
+        DEFAULT_META.groupA_name,
+        DEFAULT_META.groupB_name,
+        DEFAULT_META.courseDayOfWeek || '星期四'
+      ),
       updatedAt: Date.now(),
     };
 

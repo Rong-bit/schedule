@@ -195,7 +195,7 @@ export const DEFAULT_META: PlanMetadata = {
 // Calculate rotation group for a given week
 export function getCalculatedGroup(
   week: number,
-  pattern: 'none' | 'alternate-2' | 'alternate-1' | 'alternate-3' | 'aabbbb' | 'half-semester' | 'custom',
+  pattern: 'none' | 'alternate-2' | 'alternate-1' | 'alternate-3' | 'aabbbb' | 'bbaaaa' | 'half-semester' | 'custom',
   nameA: string = 'A組',
   nameB: string = 'B組',
   sequence?: string[],
@@ -223,14 +223,15 @@ export function getCalculatedGroup(
     const block = Math.floor((week - 1) / 2);
     return (block % 2 === 0) ? nameA : nameB;
   }
-  if (pattern === 'aabbbb') {
-    // 開頭 2 週 A，其後 4 週 B、4 週 A 循環，結尾不足一個 4 週塊則補 A
-    // 21 週：1–2 A、3–6 B、7–10 A、11–14 B、15–18 A、19–21 A
-    if (week <= 2) return nameA;
-    if (totalWeeks - week + 1 < 4) return nameA;
+  if (pattern === 'aabbbb' || pattern === 'bbaaaa') {
+    // 開頭 2 週第一組，其後 4 週另一組／4 週第一組循環，結尾不足 4 週則補第一組
+    const first = pattern === 'aabbbb' ? nameA : nameB;
+    const second = pattern === 'aabbbb' ? nameB : nameA;
+    if (week <= 2) return first;
+    if (totalWeeks - week + 1 < 4) return first;
     const i = week - 3;
     const block = Math.floor(i / 4);
-    return block % 2 === 0 ? nameB : nameA;
+    return block % 2 === 0 ? second : first;
   }
   if (pattern === 'alternate-3') {
     // Alternate every 3 weeks: Week 1-3: A, Week 4-6: B...

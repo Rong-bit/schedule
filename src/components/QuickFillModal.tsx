@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Sparkles, X, AlertTriangle } from 'lucide-react';
 import { CalendarWeek, SyllabusPlan, GroupRotationPattern } from '../types';
-import { isSkippedTeachingWeek, alignRowsWithClassWeekday } from '../utils/scheduleRules';
+import { isSkippedTeachingWeek, alignRowsWithClassWeekday, assignGroupsSkippingBreaks } from '../utils/scheduleRules';
 import { parseGroupSequenceText } from '../data/defaultCalendar';
 
 interface QuickFillModalProps {
@@ -63,10 +63,15 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
     // 預覽：若有輸入分組序，用它估算；否則用目前列上組別
     const previewRows =
       pasteMode === 'shared-ab' && seq.length > 0
-        ? plan.rows.map((r, idx) => ({
-            ...r,
-            group: seq[idx] ?? seq[seq.length - 1] ?? r.group,
-          }))
+        ? assignGroupsSkippingBreaks(
+            plan.rows,
+            calendar || [],
+            'custom',
+            nameA,
+            nameB,
+            day,
+            seq
+          )
         : plan.rows;
 
     const teaching = previewRows.filter(
@@ -406,7 +411,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
           {selectedTool === 'rotation' && (
             <div className="space-y-4 text-xs">
               <p className="text-slate-600">
-                選擇實習工場合作分組的輪調頻率，系統會自動重新計算 21 週的組別代號（{plan.meta.groupA_name} /{' '}
+                選擇輪調規則後，只在實際上課週推進 A／B；放假與考查週組別為「—」（{plan.meta.groupA_name} /{' '}
                 {plan.meta.groupB_name}）：
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -421,7 +426,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                 >
                   <div className="font-bold text-slate-800">每 2 週輪調一次（標準公版）</div>
                   <div className="text-[11px] text-slate-500 mt-1">
-                    第 1-2 週 A組，第 3-4 週 B組，依此類推
+                    實際上課週每兩週換一次組；放假／考查不佔週次
                   </div>
                 </button>
                 <button
@@ -435,7 +440,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                 >
                   <div className="font-bold text-slate-800">每 1 週輪調一次（單雙週）</div>
                   <div className="text-[11px] text-slate-500 mt-1">
-                    奇數週 A組，偶數週 B組 交替輪調
+                    實際上課週單雙交替；放假／考查不佔週次
                   </div>
                 </button>
                 <button
@@ -449,7 +454,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                 >
                   <div className="font-bold text-slate-800">每 3 週輪調一次</div>
                   <div className="text-[11px] text-slate-500 mt-1">
-                    每三個單元大模組輪換一次組別
+                    實際上課週每三週換一次組；放假／考查不佔週次
                   </div>
                 </button>
                 <button
@@ -463,7 +468,21 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                 >
                   <div className="font-bold text-slate-800">開頭 2 週 A，4 週 B／4 週 A 循環</div>
                   <div className="text-[11px] text-slate-500 mt-1">
-                    第 1–2 週 A，接著 4 週 B、4 週 A 循環，結尾不足 4 週則補 A（21 週時第 19–21 週為 A）
+                    實際上課週才排組別；放假／考查週為「—」。結尾不足 4 週補 A
+                  </div>
+                </button>
+                <button
+                  id="rotation-opt-bbaaaa"
+                  type="button"
+                  onClick={() => {
+                    onApplyRotation('bbaaaa');
+                    onClose();
+                  }}
+                  className="p-3 text-left border border-slate-200 hover:border-blue-600 hover:bg-blue-50/50 rounded-lg transition-all"
+                >
+                  <div className="font-bold text-slate-800">開頭 2 週 B，4 週 A／4 週 B 循環</div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    與上一項相反：先 B 兩週，再 4A／4B 循環，結尾補 B；放假／考查跳過
                   </div>
                 </button>
                 <button

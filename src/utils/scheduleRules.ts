@@ -1,4 +1,5 @@
 import { CalendarWeek, GroupRotationPattern, SyllabusRow } from '../types';
+import { getCalculatedGroup } from '../data/defaultCalendar';
 
 export interface ClassDayEvaluation {
   classDate: Date | null;
@@ -280,26 +281,63 @@ export function isSkippedTeachingWeek(
     return true;
   }
 
-  const calWeek =
-    calendar?.find((c) => c.week === row.week) ||
-    ({
+  const calWeek = calendar?.find((c) => c.week === row.week);
+  const evalResult = evaluateClassDay(
+    {
       week: row.week,
       dateRangeText: row.dateRangeText,
-      schoolEvent: row.schoolNote,
-    } as CalendarWeek);
-
-  const evalResult = evaluateClassDay(calWeek, dayOfWeek);
+      startDate: calWeek?.startDate,
+      endDate: calWeek?.endDate,
+      schoolEvent: row.schoolNote || calWeek?.schoolEvent,
+    },
+    dayOfWeek
+  );
   if (evalResult.isHoliday || evalResult.isExam) return true;
 
-  // 進度欄已標成放假／段考時也略過
+  // 進度欄已標成放假／定期考查時也略過（不含「段考檢討」等實際上課週）
   if (
-    /放假|連假|中秋|國慶|元旦|寒假開始/.test(row.courseProgress) ||
-    /段考|定期考|期中考|期末考/.test(row.courseProgress)
+    /^(放假|連假)/.test(row.courseProgress.trim()) ||
+    /寒假開始/.test(row.courseProgress) ||
+    /^第\s*\d+\s*次定期考查/.test(row.courseProgress.trim())
   ) {
     return true;
   }
 
   return false;
+}
+
+/** 放假／考查週組別為「—」，其餘週依輪調序（不消耗放假考查週） */
+export function assignGroupsSkippingBreaks(
+  rows: SyllabusRow[],
+  calendar: CalendarWeek[],
+  pattern: GroupRotationPattern,
+  nameA: string,
+  nameB: string,
+  dayOfWeek: string,
+  sequence?: string[]
+): SyllabusRow[] {
+  if (pattern === 'none') {
+    return rows.map((r) => ({
+      ...r,
+      group: isSkippedTeachingWeek(r, calendar, dayOfWeek) ? '—' : '全班',
+    }));
+  }
+
+  const teachingCount = rows.filter(
+    (r) => !isSkippedTeachingWeek(r, calendar, dayOfWeek)
+  ).length;
+
+  let slot = 0;
+  return rows.map((r) => {
+    if (isSkippedTeachingWeek(r, calendar, dayOfWeek)) {
+      return { ...r, group: '—' };
+    }
+    slot += 1;
+    return {
+      ...r,
+      group: getCalculatedGroup(slot, pattern, nameA, nameB, sequence, teachingCount),
+    };
+  });
 }
 
 function isGroupA(group: string, nameA: string): boolean {
