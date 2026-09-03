@@ -38,18 +38,33 @@ export default function App() {
   });
 
   const [plansList, setPlansList] = useState<SyllabusPlan[]>(() => {
+    let cal = DEFAULT_CALENDAR_115_1;
+    try {
+      const savedCal = localStorage.getItem(STORAGE_KEY_CALENDAR);
+      if (savedCal) cal = JSON.parse(savedCal);
+    } catch (e) {
+      console.error(e);
+    }
     try {
       const saved = localStorage.getItem(STORAGE_KEY_PLANS);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          let plans = parsed as SyllabusPlan[];
           if (!localStorage.getItem(STORAGE_KEY_EMPTY_HW_COLS)) {
-            const cleared = withBlankHomeworkColumns(parsed);
+            plans = withBlankHomeworkColumns(plans);
             localStorage.setItem(STORAGE_KEY_EMPTY_HW_COLS, '1');
-            localStorage.setItem(STORAGE_KEY_PLANS, JSON.stringify(cleared));
-            return cleared;
           }
-          return parsed;
+          const aligned = plans.map((p) => ({
+            ...p,
+            rows: alignRowsWithClassWeekday(
+              p.rows,
+              cal,
+              p.meta.courseDayOfWeek || '星期四'
+            ),
+          }));
+          localStorage.setItem(STORAGE_KEY_PLANS, JSON.stringify(aligned));
+          return aligned;
         }
       }
     } catch (e) {

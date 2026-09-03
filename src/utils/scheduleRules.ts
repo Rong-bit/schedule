@@ -124,9 +124,22 @@ function matchNoteOnClassDate(
 
 export function isAutoFilledProgress(text?: string): boolean {
   if (!text) return false;
-  return /^(放假|第[123]次定期考查|第一次期中定期考查|第二次期中定期考查|期末定期考查|中秋節放假|國慶日|元旦連假|寒假開始)/.test(
-    text.trim()
-  );
+  const t = text.trim();
+  return /技能實作評量與學科測驗|實習成品驗收與專業測驗|工場工安清潔保養|第一次期中定期考查|第二次期中定期考查|期末定期考查/.test(
+    t
+  ) || /^(放假|第[123]次定期考查|中秋節放假|國慶日|元旦連假|寒假開始)/.test(t);
+}
+
+/** 去掉舊版自動帶入的括號說明，改為「第Ｎ次定期考查」 */
+export function stripLegacyExamBoilerplate(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/第一次期中定期考查（技能實作評量與學科測驗）/g, '第1次定期考查')
+    .replace(/第二次期中定期考查（實習成品驗收與專業測驗）/g, '第2次定期考查')
+    .replace(/期末定期考查（實習總驗收與工場工安清潔保養）/g, '第3次定期考查')
+    .replace(/第一次期中定期考查/g, '第1次定期考查')
+    .replace(/第二次期中定期考查/g, '第2次定期考查')
+    .replace(/期末定期考查/g, '第3次定期考查');
 }
 
 export function evaluateClassDay(
@@ -219,6 +232,8 @@ export function alignRowsWithClassWeekday(
       dayOfWeek
     );
 
+    const progress = stripLegacyExamBoilerplate(row.courseProgress);
+
     if (evalResult.isHoliday || evalResult.isExam) {
       return {
         ...row,
@@ -226,10 +241,17 @@ export function alignRowsWithClassWeekday(
       };
     }
 
-    if (isAutoFilledProgress(row.courseProgress)) {
+    if (isAutoFilledProgress(progress)) {
       return {
         ...row,
         courseProgress: '',
+      };
+    }
+
+    if (progress !== row.courseProgress) {
+      return {
+        ...row,
+        courseProgress: progress,
       };
     }
 

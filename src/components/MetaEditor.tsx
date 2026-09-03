@@ -85,7 +85,7 @@ export const MetaEditor: React.FC<MetaEditorProps> = ({
                 {meta.groupPattern === 'alternate-2' && '每 2 週輪調 (A/B公版)'}
                 {meta.groupPattern === 'alternate-1' && '每 1 週輪調 (單雙週)'}
                 {meta.groupPattern === 'alternate-3' && '每 3 週輪調'}
-                {meta.groupPattern === 'aabbbb' && '2週A＋4週B循環'}
+                {meta.groupPattern === 'aabbbb' && '開頭2週A，4週B／4週A循環，結尾補2週A'}
                 {meta.groupPattern === 'half-semester' && '上半學期A／下半學期B'}
                 {meta.groupPattern === 'custom' && '自訂設定'}
               </span>
@@ -132,7 +132,7 @@ export const MetaEditor: React.FC<MetaEditorProps> = ({
               <option value="alternate-2">每 2 週輪調 (中正高工公版標準)</option>
               <option value="alternate-1">每 1 週輪調 (單雙週交替)</option>
               <option value="alternate-3">每 3 週輪調</option>
-              <option value="aabbbb">2週A、4週B循環（第5–6週為B）</option>
+              <option value="aabbbb">開頭2週A，4週B／4週A循環，結尾補2週A</option>
               <option value="half-semester">上半學期 A、下半學期 B</option>
               <option value="none">全班上課 (不分組)</option>
             </select>
