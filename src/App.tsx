@@ -13,6 +13,18 @@ import { Check, Sparkles, Printer, FileSpreadsheet, Info, X } from 'lucide-react
 
 const STORAGE_KEY_PLANS = 'zzvs_syllabus_plans_v1';
 const STORAGE_KEY_CALENDAR = 'zzvs_calendar_115_1_v1';
+const STORAGE_KEY_EMPTY_HW_COLS = 'zzvs_empty_assignment_assessment_v1';
+
+function withBlankHomeworkColumns(plans: SyllabusPlan[]): SyllabusPlan[] {
+  return plans.map((p) => ({
+    ...p,
+    rows: p.rows.map((r) => ({
+      ...r,
+      assignment: '',
+      assessment: '',
+    })),
+  }));
+}
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<'syllabus' | 'calendar' | 'guide'>('syllabus');
@@ -31,7 +43,15 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY_PLANS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          if (!localStorage.getItem(STORAGE_KEY_EMPTY_HW_COLS)) {
+            const cleared = withBlankHomeworkColumns(parsed);
+            localStorage.setItem(STORAGE_KEY_EMPTY_HW_COLS, '1');
+            localStorage.setItem(STORAGE_KEY_PLANS, JSON.stringify(cleared));
+            return cleared;
+          }
+          return parsed;
+        }
       }
     } catch (e) {
       console.error(e);

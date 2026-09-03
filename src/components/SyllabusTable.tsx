@@ -133,8 +133,6 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
       const aligned = alignRowsWithClassWeekday(rows, calendar || [], day);
       aligned.forEach((row, idx) => {
         onRowChange(idx, 'courseProgress', row.courseProgress);
-        onRowChange(idx, 'assessment', row.assessment);
-        onRowChange(idx, 'assignment', row.assignment);
       });
     }
   };
@@ -453,12 +451,6 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
                               type="button"
                               onClick={() => {
                                 onRowChange(index, 'courseProgress', suggestion.text);
-                                if (suggestion.assessmentText) {
-                                  onRowChange(index, 'assessment', suggestion.assessmentText);
-                                }
-                                if (suggestion.isHoliday) {
-                                  onRowChange(index, 'assignment', '無');
-                                }
                               }}
                               className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded font-bold transition-colors shadow-2xs print:hidden cursor-pointer border ${
                                 suggestion.isHoliday
@@ -518,7 +510,7 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
                           type="text"
                           value={row.assignment}
                           onChange={(e) => onRowChange(index, 'assignment', e.target.value)}
-                          placeholder="例如：實習報告"
+                          placeholder=""
                           className="print-clean w-full px-2 py-1 text-xs text-slate-900 border border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-md transition-all focus:outline-hidden"
                         />
                       )}
@@ -537,7 +529,7 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
                           type="text"
                           value={row.assessment}
                           onChange={(e) => onRowChange(index, 'assessment', e.target.value)}
-                          placeholder={isExamWeek ? '段考評量' : '操作考查'}
+                          placeholder=""
                           className="print-clean w-full px-2 py-1 text-xs text-slate-900 border border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-md transition-all focus:outline-hidden"
                         />
                       )}

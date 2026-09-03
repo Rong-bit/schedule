@@ -353,8 +353,8 @@ export function createDefaultSyllabusRows(
     dateRangeText: cal.dateRangeText,
     courseProgress: SAMPLE_PROGRESS_MICROPROCESSOR[idx] || '',
     group: getCalculatedGroup(cal.week, pattern),
-    assignment: SAMPLE_ASSIGNMENTS_MICROPROCESSOR[idx] || '',
-    assessment: SAMPLE_ASSESSMENTS_MICROPROCESSOR[idx] || '',
+    assignment: '',
+    assessment: '',
     schoolNote: cal.schoolEvent,
     customNote: '',
   }));
@@ -401,8 +401,8 @@ export const SAMPLE_PRESETS: { label: string; plan: () => SyllabusPlan }[] = [
           dateRangeText: cal.dateRangeText,
           courseProgress: progresses[i] || '',
           group: getCalculatedGroup(cal.week, 'alternate-2'),
-          assignment: `實習工件第 ${i + 1} 號量測表`,
-          assessment: cal.isHolidayOrExam ? '段考/測驗' : '工件尺寸公差考核',
+          assignment: '',
+          assessment: '',
           schoolNote: cal.schoolEvent,
           customNote: '',
         };

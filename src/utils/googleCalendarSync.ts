@@ -188,13 +188,52 @@ function eventOverlapsWeek(event: GoogleCalendarEvent, week: CalendarWeek): bool
   );
 }
 
+function publicIcsUrl(calendarId: string): string {
+  return `https://calendar.google.com/calendar/ical/${encodeURIComponent(calendarId)}/public/basic.ics`;
+}
+
+function looksLikeIcs(text: string): boolean {
+  return text.includes('BEGIN:VCALENDAR');
+}
+
+function isLocalDevHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1';
+}
+
+async function tryFetchIcs(url: string): Promise<string | null> {
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const text = await res.text();
+  return looksLikeIcs(text) ? text : null;
+}
+
+/** 本機走 Vite 代理；GitHub Pages 改抓公開 ICS（必要時經 CORS 代理） */
 async function fetchIcsViaProxy(calendarId: string): Promise<string> {
-  const res = await fetch(`/api/gcal-ics?id=${encodeURIComponent(calendarId)}`);
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`無法讀取日曆（HTTP ${res.status}${detail ? `: ${detail.slice(0, 80)}` : ''}）`);
+  const icsUrl = publicIcsUrl(calendarId);
+  const urls: string[] = [];
+
+  if (isLocalDevHost()) {
+    urls.push(`/api/gcal-ics?id=${encodeURIComponent(calendarId)}`);
   }
-  return res.text();
+
+  urls.push(
+    icsUrl,
+    `https://corsproxy.io/?${encodeURIComponent(icsUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(icsUrl)}`
+  );
+
+  for (const url of urls) {
+    try {
+      const text = await tryFetchIcs(url);
+      if (text) return text;
+    } catch {
+      // 嘗試下一個來源
+    }
+  }
+
+  throw new Error('無法讀取公開日曆，請稍後再試');
 }
 
 /**

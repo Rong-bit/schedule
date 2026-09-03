@@ -138,18 +138,14 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
       prevRows.map((row) => {
         const note = row.schoolNote || '';
         let newProgress = row.courseProgress;
-        let newAssessment = row.assessment;
 
         // Exams
         if (row.week === 7 || /第\s*1\s*次期中|第一次期中|第一次段考|第1次段考/.test(note)) {
           newProgress = row.courseProgress || '第一次期中定期考查（技能實作評量與學科測驗）';
-          newAssessment = row.assessment || '第 1 次段考';
         } else if (row.week === 14 || /第\s*2\s*次期中|第二次期中|第二次段考|第2次段考/.test(note)) {
           newProgress = row.courseProgress || '第二次期中定期考查（實習成品驗收與專業測驗）';
-          newAssessment = row.assessment || '第 2 次段考';
         } else if (row.week === 21 || /期末考|期末定期考|期末段考/.test(note)) {
           newProgress = row.courseProgress || '期末定期考查（實習總驗收與工安保養）';
-          newAssessment = row.assessment || '期末考評量';
         }
         // Holidays from calendar
         else if (/中秋/.test(note)) {
@@ -165,7 +161,6 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
         return {
           ...row,
           courseProgress: newProgress,
-          assessment: newAssessment,
         };
       })
     );

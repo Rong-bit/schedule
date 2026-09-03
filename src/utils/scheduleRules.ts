@@ -164,7 +164,7 @@ export function evaluateClassDay(
     isExam = false;
   }
 
-  // 計算標準進度、作業與評量建議文字
+  // 計算標準進度建議（指定作業／日常考查欄位保持空白，不自動填寫）
   let suggestedProgress = '';
   let suggestedAssessment = '';
   let suggestedAssignment = '';
@@ -173,21 +173,15 @@ export function evaluateClassDay(
   if (isHoliday) {
     statusLabel = '放假';
     suggestedProgress = holidayName.includes('放假') ? holidayName : `${holidayName}放假`;
-    suggestedAssessment = '放假';
-    suggestedAssignment = '無';
   } else if (isExam) {
     statusLabel = '段考';
     if (examName.includes('第一次') || weekNum === 7) {
       suggestedProgress = '第一次期中定期考查（技能實作評量與學科測驗）';
-      suggestedAssessment = '第 1 次段考';
     } else if (examName.includes('第二次') || weekNum === 14) {
       suggestedProgress = '第二次期中定期考查（實習成品驗收與專業測驗）';
-      suggestedAssessment = '第 2 次段考';
     } else {
       suggestedProgress = '期末定期考查（實習總驗收與工場工安清潔保養）';
-      suggestedAssessment = '期末考評量';
     }
-    suggestedAssignment = '段考複習/自主學習';
   }
 
   return {
@@ -208,7 +202,7 @@ export function evaluateClassDay(
   };
 }
 
-// 根據設定的上課星期，一鍵自動同步/更新 21 週的課程進度、日常考查與作業
+// 根據設定的上課星期，一鍵自動同步/更新 21 週的課程進度（作業／評量欄不自動填寫）
 export function alignRowsWithClassWeekday(
   rows: SyllabusRow[],
   calendar: CalendarWeek[],
@@ -229,8 +223,6 @@ export function alignRowsWithClassWeekday(
       return {
         ...row,
         courseProgress: evalResult.suggestedProgress,
-        assessment: evalResult.suggestedAssessment,
-        assignment: evalResult.suggestedAssignment,
       };
     }
 
@@ -239,8 +231,6 @@ export function alignRowsWithClassWeekday(
       return {
         ...row,
         courseProgress: evalResult.suggestedProgress,
-        assessment: evalResult.suggestedAssessment,
-        assignment: row.assignment && !row.assignment.includes('量測表') ? row.assignment : evalResult.suggestedAssignment,
       };
     }
 
@@ -255,8 +245,6 @@ export function alignRowsWithClassWeekday(
       return {
         ...row,
         courseProgress: fallback,
-        assessment: row.assessment === '放假' ? '技能操作評量' : row.assessment,
-        assignment: row.assignment === '無' ? `實習作業第 ${row.week} 次` : row.assignment,
       };
     }
 
@@ -371,12 +359,6 @@ export function applySharedGroupProgress(
             next[idx] = {
               ...row,
               courseProgress: evalResult.suggestedProgress || row.courseProgress,
-              assessment: evalResult.suggestedAssessment || row.assessment,
-              assignment:
-                evalResult.suggestedAssignment &&
-                (!row.assignment || row.assignment === '無')
-                  ? evalResult.suggestedAssignment
-                  : row.assignment,
             };
           }
         }
