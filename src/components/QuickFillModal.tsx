@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Sparkles, X, AlertTriangle } from 'lucide-react';
 import { CalendarWeek, SyllabusPlan, GroupRotationPattern } from '../types';
-import { isSkippedTeachingWeek, alignRowsWithClassWeekday, assignGroupsSkippingBreaks } from '../utils/scheduleRules';
+import { isSkippedTeachingWeek, alignRowsWithClassWeekday, assignGroupsSkippingBreaks, applySequentialTeachingProgress } from '../utils/scheduleRules';
 import { parseGroupSequenceText } from '../data/defaultCalendar';
 
 interface QuickFillModalProps {
@@ -47,7 +47,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
         .map((g) => (g.includes('B') || g.includes('乙') ? 'b' : g === '全班' ? 'x' : 'a'))
         .join('');
     }
-    return DEFAULT_GROUP_PATTERN;
+    return '';
   });
   const [selectedTool, setSelectedTool] = useState<'paste' | 'exam' | 'rotation' | 'clear'>('paste');
   const defaultPasteMode: PasteMode =
@@ -59,20 +59,15 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
     const nameA = plan.meta.groupA_name;
     const nameB = plan.meta.groupB_name;
     const seq = parseGroupSequenceText(groupPatternText, nameA, nameB);
-
-    // 預覽：若有輸入分組序，用它估算；否則用目前列上組別
-    const previewRows =
-      pasteMode === 'shared-ab' && seq.length > 0
-        ? assignGroupsSkippingBreaks(
-            plan.rows,
-            calendar || [],
-            'custom',
-            nameA,
-            nameB,
-            day,
-            seq
-          )
-        : plan.rows;
+    const previewRows = assignGroupsSkippingBreaks(
+      plan.rows,
+      calendar || [],
+      seq.length > 0 ? 'custom' : plan.meta.groupPattern,
+      nameA,
+      nameB,
+      day,
+      seq.length > 0 ? seq : plan.meta.groupSequence
+    );
 
     const teaching = previewRows.filter(
       (row) => !isSkippedTeachingWeek(row, calendar, day)
@@ -83,11 +78,27 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
     const bWeeks = teaching.filter(
       (r) => r.group === nameB || /^B/i.test(r.group) || r.group.includes('乙')
     );
+    let aRuns = 0;
+    let bRuns = 0;
+    let last = '';
+    for (const r of teaching) {
+      const g =
+        r.group === nameA || /^A/i.test(r.group) || r.group.includes('甲')
+          ? 'A'
+          : r.group === nameB || /^B/i.test(r.group) || r.group.includes('乙')
+            ? 'B'
+            : 'o';
+      if (g !== last) {
+        if (g === 'A') aRuns += 1;
+        if (g === 'B') bRuns += 1;
+        last = g;
+      }
+    }
     return {
       teachingCount: teaching.length,
       aCount: aWeeks.length,
       bCount: bWeeks.length,
-      pairHint: Math.min(aWeeks.length, bWeeks.length) || Math.floor(teaching.length / 2),
+      pairHint: Math.min(aRuns, bRuns) || Math.floor(teaching.length / 2),
       seqLen: seq.length,
     };
   }, [plan, calendar, groupPatternText, pasteMode]);
@@ -106,13 +117,19 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
     }
 
     if (pasteMode === 'sequential-21') {
-      onBatchUpdateRows((prevRows) =>
-        prevRows.map((row, idx) => ({
-          ...row,
-          courseProgress: lines[idx] !== undefined ? lines[idx] : row.courseProgress,
-        }))
+      const day = plan.meta.courseDayOfWeek || '星期四';
+      const result = applySequentialTeachingProgress(
+        plan.rows,
+        lines,
+        calendar,
+        day
       );
-      alert(`已成功將 ${Math.min(lines.length, 21)} 週的課程進度依序填入！`);
+      onBatchUpdateRows(() => result.rows);
+      const skipText =
+        result.skippedWeeks.length > 0
+          ? `\n已略過第 ${result.skippedWeeks.join('、')} 週（放假／考查）`
+          : '';
+      alert(`已將 ${result.used} 項進度填入實際上課週。${skipText}`);
       onClose();
       return;
     }
@@ -269,7 +286,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                     <span>
                       <span className="font-bold text-slate-900 block">A/B 共用進度（建議）</span>
                       <span className="text-[11px] text-slate-500 leading-relaxed">
-                        依分組序（如 aabbbbaaaabb）排 A/B，再貼半學期進度；略過放假／段考後，兩邊同序位顯示相同課程。
+                        先依目前輪調（只算實際上課週）排 A／B，再貼半學期進度；放假／考查不佔行，兩邊同序位相同課程。
                       </span>
                     </span>
                   </label>
@@ -288,9 +305,9 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                       onChange={() => setPasteMode('sequential-21')}
                     />
                     <span>
-                      <span className="font-bold text-slate-900 block">依序填入 21 週</span>
+                      <span className="font-bold text-slate-900 block">依序填入實際上課週</span>
                       <span className="text-[11px] text-slate-500 leading-relaxed">
-                        一行對應一週（舊版行為），含放假／段考週也會佔一行。
+                        一行一個單元，只填上課週；放假／考查週不佔行、也不覆蓋。
                       </span>
                     </span>
                   </label>
@@ -301,21 +318,21 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                 <div className="space-y-2">
                   <div>
                     <label htmlFor="ab-group-pattern-input" className="block text-xs font-bold text-slate-700 mb-1">
-                      分組序（a=A組、b=B組，可寫 aabbbbaaaabbbbaaaabb）
+                      自訂分組序（選填；空白則用表上目前輪調，只算實際上課週）
                     </label>
                     <input
                       id="ab-group-pattern-input"
                       type="text"
                       value={groupPatternText}
                       onChange={(e) => setGroupPatternText(e.target.value)}
-                      placeholder="aabbbbaaaabbbbaaaabb"
+                      placeholder={DEFAULT_GROUP_PATTERN}
                       className="w-full text-xs font-mono px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 focus:outline-hidden"
                     />
                   </div>
                   <div className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 leading-relaxed">
-                    依此序約可排 <strong>{teachingPreview.pairHint}</strong> 項進度
+                    實際上課週約可排 <strong>{teachingPreview.pairHint}</strong> 個單元
                     （{plan.meta.groupA_name} {teachingPreview.aCount} 週／
-                    {plan.meta.groupB_name} {teachingPreview.bCount} 週；已排除放假／段考／自訂）。
+                    {plan.meta.groupB_name} {teachingPreview.bCount} 週；放假／考查不佔行）。
                     {teachingPreview.seqLen > 0 && (
                       <span className="text-slate-500"> 分組序長度 {teachingPreview.seqLen}。</span>
                     )}
@@ -326,8 +343,8 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {pasteMode === 'shared-ab'
-                    ? '請貼上半學期進度（一行一個單元，A/B 會自動共用）：'
-                    : '請將 21 週的課程進度文字貼在下方（一行代表一週）：'}
+                    ? '請貼上半學期進度（一行一個單元，只填實際上課週，A/B 會自動共用）：'
+                    : '請貼上課進度（一行一個單元，只填實際上課週）：'}
                 </label>
                 <textarea
                   id="batch-paste-textarea"
@@ -357,7 +374,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                   onClick={handleApplyPastedText}
                   className="px-4 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded-lg shadow-2xs transition-colors"
                 >
-                  {pasteMode === 'shared-ab' ? '套用 A/B 共用進度' : '依序填入 21 週'}
+                  {pasteMode === 'shared-ab' ? '套用 A/B 共用進度' : '填入實際上課週'}
                 </button>
               </div>
             </div>
@@ -496,7 +513,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                 >
                   <div className="font-bold text-slate-800">上半學期 A、下半學期 B</div>
                   <div className="text-[11px] text-slate-500 mt-1">
-                    第 1～11 週 A組，第 12～21 週 B組
+                    實際上課週對半：前半 A、後半 B
                   </div>
                 </button>
                 <button
@@ -518,14 +535,14 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
               <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/60 space-y-2">
                 <div className="font-bold text-amber-950">自訂分組序（如 aabbbbaaaabb）</div>
                 <p className="text-[11px] text-amber-900/90 leading-relaxed">
-                  可直接貼緊湊字串，或一行一週。套用後再回「多行批次貼上」做 A/B 共用進度。
+                  可直接貼緊湊字串，或一行一週。此序只套在實際上課週；套用後再回「多行批次貼上」填進度。
                 </p>
                 <input
                   id="rotation-custom-group-pattern"
                   type="text"
                   value={groupPatternText}
                   onChange={(e) => setGroupPatternText(e.target.value)}
-                  placeholder="aabbbbaaaabbbbaaaabb"
+                  placeholder={DEFAULT_GROUP_PATTERN}
                   className="w-full text-xs font-mono px-2.5 py-2 border border-amber-300 rounded-lg bg-white focus:ring-1 focus:ring-amber-600 focus:outline-hidden"
                 />
                 <div className="flex justify-end">

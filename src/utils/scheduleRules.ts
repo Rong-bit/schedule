@@ -306,7 +306,12 @@ export function isSkippedTeachingWeek(
   return false;
 }
 
-/** 放假／考查週組別為「—」，其餘週依輪調序（不消耗放假考查週） */
+function isWholeClassGroup(group: string): boolean {
+  const g = (group || '').trim();
+  return g === '全班' || g === '全體' || g === '不分組';
+}
+
+/** 放假／考查週組別為「—」。已標「全班」的週（非整學期都是全班時）保留並不佔輪調序。 */
 export function assignGroupsSkippingBreaks(
   rows: SyllabusRow[],
   calendar: CalendarWeek[],
@@ -323,14 +328,24 @@ export function assignGroupsSkippingBreaks(
     }));
   }
 
-  const teachingCount = rows.filter(
-    (r) => !isSkippedTeachingWeek(r, calendar, dayOfWeek)
+  const teaching = rows.filter((r) => !isSkippedTeachingWeek(r, calendar, dayOfWeek));
+  const wholeClassCount = teaching.filter((r) => isWholeClassGroup(r.group)).length;
+  // 剛從「全班不分組」改輪調：上課週全是全班 → 全部重新分配
+  // 僅部分週手動設成全班：那些週跳過，其餘才推進 A／B
+  const preserveWholeClass =
+    wholeClassCount > 0 && wholeClassCount < teaching.length;
+
+  const teachingCount = teaching.filter(
+    (r) => !(preserveWholeClass && isWholeClassGroup(r.group))
   ).length;
 
   let slot = 0;
   return rows.map((r) => {
     if (isSkippedTeachingWeek(r, calendar, dayOfWeek)) {
       return { ...r, group: '—' };
+    }
+    if (preserveWholeClass && isWholeClassGroup(r.group)) {
+      return { ...r, group: '全班' };
     }
     slot += 1;
     return {
@@ -430,36 +445,51 @@ export function applySharedGroupProgress(
     };
   }
 
-  // 有分組：A、B 各取上課週清單，同序位填相同進度
-  const aIndexes = teachingIndexes.filter((idx) =>
-    isGroupA(next[idx].group, nameA)
-  );
-  const bIndexes = teachingIndexes.filter((idx) =>
-    isGroupB(next[idx].group, nameB)
-  );
+  // 有分組：依「連續同組上課週」為一個單元，A、B 同序位填相同進度
+  type GroupKey = 'A' | 'B' | 'other';
+  const groupOf = (idx: number): GroupKey => {
+    if (isGroupA(next[idx].group, nameA)) return 'A';
+    if (isGroupB(next[idx].group, nameB)) return 'B';
+    return 'other';
+  };
 
-  // 若組別欄位異常導致一邊為空，退回「成對相鄰上課週」策略
+  const runs: { group: GroupKey; indexes: number[] }[] = [];
+  for (const idx of teachingIndexes) {
+    const g = groupOf(idx);
+    const last = runs[runs.length - 1];
+    if (last && last.group === g) last.indexes.push(idx);
+    else runs.push({ group: g, indexes: [idx] });
+  }
+
+  const aRuns = runs.filter((r) => r.group === 'A').map((r) => r.indexes);
+  const bRuns = runs.filter((r) => r.group === 'B').map((r) => r.indexes);
+
   const pairCount =
-    aIndexes.length > 0 && bIndexes.length > 0
-      ? Math.min(aIndexes.length, bIndexes.length, topics.length)
+    aRuns.length > 0 && bRuns.length > 0
+      ? Math.min(aRuns.length, bRuns.length, topics.length)
       : 0;
 
   let used = 0;
   if (pairCount > 0) {
     for (let i = 0; i < pairCount; i += 1) {
       const topic = topics[i];
-      next[aIndexes[i]] = { ...next[aIndexes[i]], courseProgress: topic };
-      next[bIndexes[i]] = { ...next[bIndexes[i]], courseProgress: topic };
+      for (const idx of aRuns[i]) {
+        next[idx] = { ...next[idx], courseProgress: topic };
+      }
+      for (const idx of bRuns[i]) {
+        next[idx] = { ...next[idx], courseProgress: topic };
+      }
       used += 1;
     }
-    // 若某一組上課週較多，剩餘週次繼續用後續 topics（避免空白）
-    const longer = aIndexes.length >= bIndexes.length ? aIndexes : bIndexes;
+    const longer = aRuns.length >= bRuns.length ? aRuns : bRuns;
     for (let i = pairCount; i < longer.length && used < topics.length; i += 1) {
-      next[longer[i]] = { ...next[longer[i]], courseProgress: topics[used] };
+      for (const idx of longer[i]) {
+        next[idx] = { ...next[idx], courseProgress: topics[used] };
+      }
       used += 1;
     }
   } else {
-    // 無有效 A/B：兩兩配對相鄰上課週
+    // 無有效 A/B：相鄰兩段上課週視為同一單元
     for (let i = 0; i + 1 < teachingIndexes.length && used < topics.length; i += 2) {
       const topic = topics[used];
       next[teachingIndexes[i]] = {
@@ -486,4 +516,27 @@ export function applySharedGroupProgress(
     skippedWeeks,
     uncoveredTopics: topics.slice(used),
   };
+}
+
+/** 一行一個單元，只填實際上課週（放假／考查週不佔行、也不覆蓋） */
+export function applySequentialTeachingProgress(
+  rows: SyllabusRow[],
+  topics: string[],
+  calendar: CalendarWeek[] | undefined,
+  dayOfWeek: string
+): { rows: SyllabusRow[]; used: number; skippedWeeks: number[] } {
+  const clean = topics.map((t) => t.trim()).filter(Boolean);
+  const skippedWeeks: number[] = [];
+  let used = 0;
+  const next = rows.map((row) => {
+    if (isSkippedTeachingWeek(row, calendar, dayOfWeek)) {
+      skippedWeeks.push(row.week);
+      return row;
+    }
+    if (used >= clean.length) return row;
+    const topic = clean[used];
+    used += 1;
+    return { ...row, courseProgress: topic };
+  });
+  return { rows: next, used, skippedWeeks };
 }

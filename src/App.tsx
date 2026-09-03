@@ -156,25 +156,36 @@ export default function App() {
         if (p.meta.id !== currentPlan.meta.id) return p;
 
         let updatedRows = p.rows;
+        const nextDay = updatedMeta.courseDayOfWeek || p.meta.courseDayOfWeek || '星期四';
+        const nextPattern = updatedMeta.groupPattern ?? p.meta.groupPattern;
+        const nextA = updatedMeta.groupA_name ?? p.meta.groupA_name;
+        const nextB = updatedMeta.groupB_name ?? p.meta.groupB_name;
+        const nextSeq =
+          (updatedMeta.groupPattern === 'custom' ? updatedMeta.groupSequence : undefined) ??
+          p.meta.groupSequence;
+
         // 如果變更上課星期（例如設為星期五），自動將「預定實習課程進度」中遇到放假或段考自動填入！
         if (
           updatedMeta.courseDayOfWeek &&
           updatedMeta.courseDayOfWeek !== p.meta.courseDayOfWeek
         ) {
           changedToDay = updatedMeta.courseDayOfWeek;
-          updatedRows = alignRowsWithClassWeekday(
-            p.rows,
-            calendar,
-            updatedMeta.courseDayOfWeek
-          );
+          updatedRows = alignRowsWithClassWeekday(p.rows, calendar, updatedMeta.courseDayOfWeek);
+        }
+
+        if (
+          (updatedMeta.courseDayOfWeek &&
+            updatedMeta.courseDayOfWeek !== p.meta.courseDayOfWeek) ||
+          (updatedMeta.groupPattern && updatedMeta.groupPattern !== p.meta.groupPattern)
+        ) {
           updatedRows = assignGroupsSkippingBreaks(
             updatedRows,
             calendar,
-            p.meta.groupPattern,
-            p.meta.groupA_name,
-            p.meta.groupB_name,
-            updatedMeta.courseDayOfWeek,
-            p.meta.groupSequence
+            nextPattern,
+            nextA,
+            nextB,
+            nextDay,
+            nextSeq
           );
         }
 
@@ -255,38 +266,40 @@ export default function App() {
     );
   };
 
-  /** A/B 共用進度：可同時套用自訂分組序（如 aabbbbaaaabb）再填相同課程 */
+  /** A/B 共用進度：先依實際上課週排組別，再把同一組單元填進 A／B 對應序位 */
   const handleApplySharedAbProgress = (topics: string[], groupSequenceText?: string) => {
     const nameA = currentPlan.meta.groupA_name;
     const nameB = currentPlan.meta.groupB_name;
-    const sequence = groupSequenceText
+    const customSequence = groupSequenceText
       ? parseGroupSequenceText(groupSequenceText, nameA, nameB)
-      : currentPlan.meta.groupSequence || [];
+      : [];
+    const useCustom = customSequence.length > 0;
+    const sequence = useCustom ? customSequence : currentPlan.meta.groupSequence;
+    const day = currentPlan.meta.courseDayOfWeek || '星期四';
 
-    let rows = currentPlan.rows;
     let nextMeta = currentPlan.meta;
-
-    if (groupSequenceText && sequence.length > 0) {
+    if (useCustom) {
       nextMeta = {
         ...nextMeta,
         groupPattern: 'custom',
-        groupSequence: sequence,
+        groupSequence: customSequence,
       };
-      rows = assignGroupsSkippingBreaks(
-        rows,
-        calendar,
-        'custom',
-        nameA,
-        nameB,
-        nextMeta.courseDayOfWeek || '星期四',
-        sequence
-      );
     }
+
+    const rows = assignGroupsSkippingBreaks(
+      currentPlan.rows,
+      calendar,
+      useCustom ? 'custom' : currentPlan.meta.groupPattern,
+      nameA,
+      nameB,
+      day,
+      sequence
+    );
 
     const result = applySharedGroupProgress(rows, {
       topics,
       calendar,
-      dayOfWeek: nextMeta.courseDayOfWeek || '星期四',
+      dayOfWeek: day,
       groupPattern: nextMeta.groupPattern === 'none' ? 'none' : nextMeta.groupPattern,
       groupAName: nameA,
       groupBName: nameB,
@@ -309,7 +322,7 @@ export default function App() {
       topicUsed: result.topicUsed,
       skippedWeeks: result.skippedWeeks,
       uncoveredTopics: result.uncoveredTopics,
-      sequenceApplied: sequence.length,
+      sequenceApplied: useCustom ? customSequence.length : 0,
     };
   };
 
