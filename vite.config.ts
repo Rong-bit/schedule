@@ -67,9 +67,10 @@ function googleCalendarIcsProxy(): Plugin {
   };
 }
 
-export default defineConfig(() => {
-  // GitHub Pages 專案站台：https://rong-bit.github.io/schedule/
-  const base = process.env.GITHUB_PAGES === 'true' ? '/schedule/' : '/';
+export default defineConfig(({ command }) => {
+  // GitHub Pages：https://rong-bit.github.io/schedule/
+  // 本機 npm run dev 仍使用根路徑 /
+  const base = command === 'build' ? '/schedule/' : '/';
 
   return {
     base,
