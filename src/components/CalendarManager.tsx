@@ -374,11 +374,6 @@ export const CalendarManager: React.FC<CalendarManagerProps> = ({
                 >
                   <td className="py-2 px-3 text-center font-bold text-slate-800">
                     <span className="font-mono">第 {cal.week} 週</span>
-                    {isExam && (
-                      <span className="block text-[9px] bg-amber-100 text-amber-900 px-1 py-0.2 rounded-xs font-semibold mt-0.5 max-w-fit mx-auto">
-                        段考週
-                      </span>
-                    )}
                   </td>
                   <td className="py-2 px-3">
                     <input

@@ -394,21 +394,6 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
                     {/* A欄: 週次 */}
                     <td className="py-1.5 px-1 text-center font-bold border border-slate-200 print:border-black text-slate-900 print:text-black">
                       <span className="inline-block font-mono">{row.week}</span>
-                      {evalResult.isHoliday && (
-                        <span className="block text-[9px] text-rose-700 bg-rose-100/90 font-bold px-1 py-0.5 rounded-sm print:hidden leading-tight mt-0.5 max-w-fit mx-auto">
-                          放假
-                        </span>
-                      )}
-                      {evalResult.isExam && (
-                        <span className="block text-[9px] text-purple-800 bg-purple-100 font-bold px-1 py-0.5 rounded-sm print:hidden leading-tight mt-0.5 max-w-fit mx-auto">
-                          {evalResult.examName || '段考'}
-                        </span>
-                      )}
-                      {!evalResult.isHoliday && !evalResult.isExam && isHolidayRow && (
-                        <span className="block text-[9px] text-red-600 bg-red-50 font-semibold px-1 py-0.5 rounded-sm print:hidden leading-tight mt-0.5 max-w-fit mx-auto">
-                          放假週
-                        </span>
-                      )}
                     </td>
 
                     {/* B欄: 起訖日期（唯讀，公式從行事曆抓取，並標示該週實習課實際日期） */}
