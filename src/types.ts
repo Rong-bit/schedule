@@ -39,8 +39,6 @@ export interface PlanMetadata {
   groupPattern: GroupRotationPattern;
   groupA_name: string;     // e.g. "A組"
   groupB_name: string;     // e.g. "B組"
-  /** 自訂分組時，每週組別（長度最多 21，例如 A組/A組/B組/...） */
-  groupSequence?: string[];
 }
 
 export interface SyllabusPlan {

@@ -142,31 +142,15 @@ export default function App() {
   const handleApplyRotation = (
     pattern: GroupRotationPattern,
     nameA: string = currentPlan.meta.groupA_name,
-    nameB: string = currentPlan.meta.groupB_name,
-    sequence?: string[]
+    nameB: string = currentPlan.meta.groupB_name
   ) => {
     setPlansList((prev) =>
       prev.map((p) => {
         if (p.meta.id !== currentPlan.meta.id) return p;
-
-        const resolvedSequence =
-          pattern === 'custom'
-            ? sequence && sequence.length > 0
-              ? sequence
-              : p.meta.groupSequence
-            : undefined;
-
-        const updatedRows = p.rows.map((r) => {
-          // 選「自訂」但尚未貼上清單時，保留現有組別
-          if (pattern === 'custom' && (!resolvedSequence || resolvedSequence.length === 0)) {
-            return r;
-          }
-          return {
-            ...r,
-            group: getCalculatedGroup(r.week, pattern, nameA, nameB, resolvedSequence),
-          };
-        });
-
+        const updatedRows = p.rows.map((r) => ({
+          ...r,
+          group: getCalculatedGroup(r.week, pattern, nameA, nameB),
+        }));
         return {
           ...p,
           meta: {
@@ -174,7 +158,6 @@ export default function App() {
             groupPattern: pattern,
             groupA_name: nameA,
             groupB_name: nameB,
-            groupSequence: pattern === 'custom' ? resolvedSequence : undefined,
           },
           rows: updatedRows,
           updatedAt: Date.now(),
