@@ -18,7 +18,13 @@ export interface SyllabusRow {
   customNote?: string;    // 教師補充備註
 }
 
-export type GroupRotationPattern = 'none' | 'alternate-2' | 'alternate-1' | 'alternate-3' | 'custom';
+export type GroupRotationPattern =
+  | 'none'
+  | 'alternate-2'
+  | 'alternate-1'
+  | 'alternate-3'
+  | 'half-semester'
+  | 'custom';
 
 export interface PlanMetadata {
   id: string;
@@ -39,6 +45,8 @@ export interface PlanMetadata {
   groupPattern: GroupRotationPattern;
   groupA_name: string;     // e.g. "A組"
   groupB_name: string;     // e.g. "B組"
+  /** 自訂分組序（如 aabbbbaaaabb → 每週組別） */
+  groupSequence?: string[];
 }
 
 export interface SyllabusPlan {

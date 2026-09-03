@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Sparkles, X, AlertTriangle } from 'lucide-react';
 import { CalendarWeek, SyllabusPlan, GroupRotationPattern } from '../types';
-import { applySharedGroupProgress, isSkippedTeachingWeek } from '../utils/scheduleRules';
+import { isSkippedTeachingWeek } from '../utils/scheduleRules';
+import { parseGroupSequenceText } from '../data/defaultCalendar';
 
 interface QuickFillModalProps {
   isOpen: boolean;
@@ -9,10 +10,26 @@ interface QuickFillModalProps {
   plan: SyllabusPlan;
   calendar?: CalendarWeek[];
   onBatchUpdateRows: (updater: (rows: SyllabusPlan['rows']) => SyllabusPlan['rows']) => void;
-  onApplyRotation: (pattern: GroupRotationPattern) => void;
+  onApplyRotation: (
+    pattern: GroupRotationPattern,
+    nameA?: string,
+    nameB?: string,
+    sequence?: string[]
+  ) => void;
+  onApplySharedAbProgress: (
+    topics: string[],
+    groupSequenceText?: string
+  ) => {
+    topicUsed: number;
+    skippedWeeks: number[];
+    uncoveredTopics: string[];
+    sequenceApplied: number;
+  };
 }
 
 type PasteMode = 'shared-ab' | 'sequential-21';
+
+const DEFAULT_GROUP_PATTERN = 'aabbbbaaaabbbbaaaabb';
 
 export const QuickFillModal: React.FC<QuickFillModalProps> = ({
   isOpen,
@@ -21,8 +38,17 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
   calendar,
   onBatchUpdateRows,
   onApplyRotation,
+  onApplySharedAbProgress,
 }) => {
   const [pastedText, setPastedText] = useState('');
+  const [groupPatternText, setGroupPatternText] = useState(() => {
+    if (plan.meta.groupSequence && plan.meta.groupSequence.length > 0) {
+      return plan.meta.groupSequence
+        .map((g) => (g.includes('B') || g.includes('乙') ? 'b' : g === '全班' ? 'x' : 'a'))
+        .join('');
+    }
+    return DEFAULT_GROUP_PATTERN;
+  });
   const [selectedTool, setSelectedTool] = useState<'paste' | 'exam' | 'rotation' | 'clear'>('paste');
   const defaultPasteMode: PasteMode =
     plan.meta.groupPattern === 'none' ? 'sequential-21' : 'shared-ab';
@@ -30,22 +56,36 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
 
   const teachingPreview = useMemo(() => {
     const day = plan.meta.courseDayOfWeek || '星期四';
-    const teaching = plan.rows.filter(
+    const nameA = plan.meta.groupA_name;
+    const nameB = plan.meta.groupB_name;
+    const seq = parseGroupSequenceText(groupPatternText, nameA, nameB);
+
+    // 預覽：若有輸入分組序，用它估算；否則用目前列上組別
+    const previewRows =
+      pasteMode === 'shared-ab' && seq.length > 0
+        ? plan.rows.map((r, idx) => ({
+            ...r,
+            group: seq[idx] ?? seq[seq.length - 1] ?? r.group,
+          }))
+        : plan.rows;
+
+    const teaching = previewRows.filter(
       (row) => !isSkippedTeachingWeek(row, calendar, day)
     );
     const aWeeks = teaching.filter(
-      (r) => r.group === plan.meta.groupA_name || /^A/i.test(r.group)
+      (r) => r.group === nameA || /^A/i.test(r.group) || r.group.includes('甲')
     );
     const bWeeks = teaching.filter(
-      (r) => r.group === plan.meta.groupB_name || /^B/i.test(r.group)
+      (r) => r.group === nameB || /^B/i.test(r.group) || r.group.includes('乙')
     );
     return {
       teachingCount: teaching.length,
       aCount: aWeeks.length,
       bCount: bWeeks.length,
       pairHint: Math.min(aWeeks.length, bWeeks.length) || Math.floor(teaching.length / 2),
+      seqLen: seq.length,
     };
-  }, [plan, calendar]);
+  }, [plan, calendar, groupPatternText, pasteMode]);
 
   if (!isOpen) return null;
 
@@ -72,25 +112,8 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
       return;
     }
 
-    // A/B 共用：貼半學期一組進度
-    let summary = { topicUsed: 0, skippedWeeks: [] as number[], uncoveredTopics: [] as string[] };
-    onBatchUpdateRows((prevRows) => {
-      const result = applySharedGroupProgress(prevRows, {
-        topics: lines,
-        calendar,
-        dayOfWeek: plan.meta.courseDayOfWeek || '星期四',
-        groupPattern: plan.meta.groupPattern,
-        groupAName: plan.meta.groupA_name,
-        groupBName: plan.meta.groupB_name,
-        fillHolidayExamLabels: true,
-      });
-      summary = {
-        topicUsed: result.topicUsed,
-        skippedWeeks: result.skippedWeeks,
-        uncoveredTopics: result.uncoveredTopics,
-      };
-      return result.rows;
-    });
+    // A/B 共用：依 aabbbb… 分組序，略過放假／段考後同序位填相同進度
+    const summary = onApplySharedAbProgress(lines, groupPatternText.trim() || undefined);
 
     const skipText =
       summary.skippedWeeks.length > 0
@@ -100,11 +123,11 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
       summary.uncoveredTopics.length > 0
         ? `\n尚有 ${summary.uncoveredTopics.length} 項進度未排入（上課週數不足）`
         : '';
+    const seqText =
+      summary.sequenceApplied > 0 ? `\n已套用分組序 ${summary.sequenceApplied} 週` : '';
 
     alert(
-      plan.meta.groupPattern === 'none'
-        ? `已將 ${summary.topicUsed} 項進度填入上課週（略過放假／段考／自訂）。${skipText}${leftover}`
-        : `已將 ${summary.topicUsed} 項進度同步填入 ${plan.meta.groupA_name} 與 ${plan.meta.groupB_name}（同序位顯示相同進度）。${skipText}${leftover}`
+      `已將 ${summary.topicUsed} 項進度同步填入 ${plan.meta.groupA_name} 與 ${plan.meta.groupB_name}（同序位相同課程）。${seqText}${skipText}${leftover}`
     );
     onClose();
   };
@@ -273,8 +296,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                     <span>
                       <span className="font-bold text-slate-900 block">A/B 共用進度（建議）</span>
                       <span className="text-[11px] text-slate-500 leading-relaxed">
-                        只貼一組半學期進度；略過放假／段考／自訂工作後，{plan.meta.groupA_name} 與{' '}
-                        {plan.meta.groupB_name} 同序位顯示相同課程。
+                        依分組序（如 aabbbbaaaabb）排 A/B，再貼半學期進度；略過放假／段考後，兩邊同序位顯示相同課程。
                       </span>
                     </span>
                   </label>
@@ -303,11 +325,28 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
               </div>
 
               {pasteMode === 'shared-ab' && (
-                <div className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 leading-relaxed">
-                  目前可排進度約 <strong>{teachingPreview.pairHint}</strong> 項
-                  （{plan.meta.groupA_name} {teachingPreview.aCount} 週／
-                  {plan.meta.groupB_name} {teachingPreview.bCount} 週；已排除放假／段考／自訂）。
-                  若某週要保留自訂內容，請先在進度欄填入「自訂工作」等字樣再貼上。
+                <div className="space-y-2">
+                  <div>
+                    <label htmlFor="ab-group-pattern-input" className="block text-xs font-bold text-slate-700 mb-1">
+                      分組序（a=A組、b=B組，可寫 aabbbbaaaabbbbaaaabb）
+                    </label>
+                    <input
+                      id="ab-group-pattern-input"
+                      type="text"
+                      value={groupPatternText}
+                      onChange={(e) => setGroupPatternText(e.target.value)}
+                      placeholder="aabbbbaaaabbbbaaaabb"
+                      className="w-full text-xs font-mono px-3 py-2 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-600 focus:border-blue-600 focus:outline-hidden"
+                    />
+                  </div>
+                  <div className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 leading-relaxed">
+                    依此序約可排 <strong>{teachingPreview.pairHint}</strong> 項進度
+                    （{plan.meta.groupA_name} {teachingPreview.aCount} 週／
+                    {plan.meta.groupB_name} {teachingPreview.bCount} 週；已排除放假／段考／自訂）。
+                    {teachingPreview.seqLen > 0 && (
+                      <span className="text-slate-500"> 分組序長度 {teachingPreview.seqLen}。</span>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -446,6 +485,20 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                   </div>
                 </button>
                 <button
+                  id="rotation-opt-half"
+                  type="button"
+                  onClick={() => {
+                    onApplyRotation('half-semester');
+                    onClose();
+                  }}
+                  className="p-3 text-left border border-slate-200 hover:border-blue-600 hover:bg-blue-50/50 rounded-lg transition-all"
+                >
+                  <div className="font-bold text-slate-800">上半學期 A、下半學期 B</div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    第 1～11 週 A組，第 12～21 週 B組
+                  </div>
+                </button>
+                <button
                   id="rotation-opt-none"
                   type="button"
                   onClick={() => {
@@ -459,6 +512,49 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                     整學期為全體同學共同進度
                   </div>
                 </button>
+              </div>
+
+              <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/60 space-y-2">
+                <div className="font-bold text-amber-950">自訂分組序（如 aabbbbaaaabb）</div>
+                <p className="text-[11px] text-amber-900/90 leading-relaxed">
+                  可直接貼緊湊字串，或一行一週。套用後再回「多行批次貼上」做 A/B 共用進度。
+                </p>
+                <input
+                  id="rotation-custom-group-pattern"
+                  type="text"
+                  value={groupPatternText}
+                  onChange={(e) => setGroupPatternText(e.target.value)}
+                  placeholder="aabbbbaaaabbbbaaaabb"
+                  className="w-full text-xs font-mono px-2.5 py-2 border border-amber-300 rounded-lg bg-white focus:ring-1 focus:ring-amber-600 focus:outline-hidden"
+                />
+                <div className="flex justify-end">
+                  <button
+                    id="apply-custom-group-only-btn"
+                    type="button"
+                    onClick={() => {
+                      const sequence = parseGroupSequenceText(
+                        groupPatternText,
+                        plan.meta.groupA_name,
+                        plan.meta.groupB_name
+                      );
+                      if (sequence.length === 0) {
+                        alert('請輸入分組序，例如 aabbbbaaaabbbbaaaabb');
+                        return;
+                      }
+                      onApplyRotation(
+                        'custom',
+                        plan.meta.groupA_name,
+                        plan.meta.groupB_name,
+                        sequence
+                      );
+                      alert(`已套用自訂分組 ${Math.min(sequence.length, 21)} 週`);
+                      onClose();
+                    }}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-amber-700 hover:bg-amber-800 rounded-lg"
+                  >
+                    只套用分組序
+                  </button>
+                </div>
               </div>
             </div>
           )}

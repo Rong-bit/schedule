@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CalendarWeek, GroupRotationPattern, PlanMetadata, SyllabusPlan, SyllabusRow } from './types';
-import { DEFAULT_CALENDAR_115_1, DEFAULT_META, SAMPLE_PRESETS, SAMPLE_PROGRESS_MICROPROCESSOR, createDefaultSyllabusRows, getCalculatedGroup } from './data/defaultCalendar';
-import { alignRowsWithClassWeekday } from './utils/scheduleRules';
+import { DEFAULT_CALENDAR_115_1, DEFAULT_META, SAMPLE_PRESETS, SAMPLE_PROGRESS_MICROPROCESSOR, createDefaultSyllabusRows, getCalculatedGroup, parseGroupSequenceText } from './data/defaultCalendar';
+import { alignRowsWithClassWeekday, applySharedGroupProgress } from './utils/scheduleRules';
 import { Header } from './components/Header';
 import { MetaEditor } from './components/MetaEditor';
 import { SyllabusTable } from './components/SyllabusTable';
@@ -142,15 +142,37 @@ export default function App() {
   const handleApplyRotation = (
     pattern: GroupRotationPattern,
     nameA: string = currentPlan.meta.groupA_name,
-    nameB: string = currentPlan.meta.groupB_name
+    nameB: string = currentPlan.meta.groupB_name,
+    sequence?: string[]
   ) => {
     setPlansList((prev) =>
       prev.map((p) => {
         if (p.meta.id !== currentPlan.meta.id) return p;
-        const updatedRows = p.rows.map((r) => ({
-          ...r,
-          group: getCalculatedGroup(r.week, pattern, nameA, nameB),
-        }));
+
+        const resolvedSequence =
+          pattern === 'custom'
+            ? sequence && sequence.length > 0
+              ? sequence
+              : p.meta.groupSequence
+            : undefined;
+
+        const updatedRows = p.rows.map((r) => {
+          if (pattern === 'custom' && (!resolvedSequence || resolvedSequence.length === 0)) {
+            return r;
+          }
+          return {
+            ...r,
+            group: getCalculatedGroup(
+              r.week,
+              pattern,
+              nameA,
+              nameB,
+              resolvedSequence,
+              p.rows.length || 21
+            ),
+          };
+        });
+
         return {
           ...p,
           meta: {
@@ -158,12 +180,66 @@ export default function App() {
             groupPattern: pattern,
             groupA_name: nameA,
             groupB_name: nameB,
+            groupSequence: pattern === 'custom' ? resolvedSequence : undefined,
           },
           rows: updatedRows,
           updatedAt: Date.now(),
         };
       })
     );
+  };
+
+  /** A/B 共用進度：可同時套用自訂分組序（如 aabbbbaaaabb）再填相同課程 */
+  const handleApplySharedAbProgress = (topics: string[], groupSequenceText?: string) => {
+    const nameA = currentPlan.meta.groupA_name;
+    const nameB = currentPlan.meta.groupB_name;
+    const sequence = groupSequenceText
+      ? parseGroupSequenceText(groupSequenceText, nameA, nameB)
+      : currentPlan.meta.groupSequence || [];
+
+    let rows = currentPlan.rows;
+    let nextMeta = currentPlan.meta;
+
+    if (groupSequenceText && sequence.length > 0) {
+      nextMeta = {
+        ...nextMeta,
+        groupPattern: 'custom',
+        groupSequence: sequence,
+      };
+      rows = rows.map((r) => ({
+        ...r,
+        group: getCalculatedGroup(r.week, 'custom', nameA, nameB, sequence),
+      }));
+    }
+
+    const result = applySharedGroupProgress(rows, {
+      topics,
+      calendar,
+      dayOfWeek: nextMeta.courseDayOfWeek || '星期四',
+      groupPattern: nextMeta.groupPattern === 'none' ? 'none' : nextMeta.groupPattern,
+      groupAName: nameA,
+      groupBName: nameB,
+      fillHolidayExamLabels: true,
+    });
+
+    setPlansList((prev) =>
+      prev.map((p) => {
+        if (p.meta.id !== currentPlan.meta.id) return p;
+        return {
+          ...p,
+          meta: nextMeta,
+          rows: result.rows,
+          updatedAt: Date.now(),
+        };
+      })
+    );
+
+    return {
+      topicUsed: result.topicUsed,
+      skippedWeeks: result.skippedWeeks,
+      uncoveredTopics: result.uncoveredTopics,
+      sequenceApplied: sequence.length,
+    };
   };
 
   // Batch update rows (e.g. from QuickFillModal)
@@ -383,6 +459,7 @@ export default function App() {
         calendar={calendar}
         onBatchUpdateRows={handleBatchUpdateRows}
         onApplyRotation={handleApplyRotation}
+        onApplySharedAbProgress={handleApplySharedAbProgress}
       />
 
       <ExportSheetsModal

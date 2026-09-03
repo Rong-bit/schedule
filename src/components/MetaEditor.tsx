@@ -15,7 +15,12 @@ import {
 interface MetaEditorProps {
   meta: PlanMetadata;
   onChange: (updated: Partial<PlanMetadata>) => void;
-  onApplyRotation: (pattern: GroupRotationPattern, nameA?: string, nameB?: string) => void;
+  onApplyRotation: (
+    pattern: GroupRotationPattern,
+    nameA?: string,
+    nameB?: string,
+    sequence?: string[]
+  ) => void;
 }
 
 const COMMON_DEPARTMENTS = ['資訊科', '電子科', '電機科', '機械科', '製圖科', '冷凍科', '化工科', '建築科'];
@@ -80,6 +85,7 @@ export const MetaEditor: React.FC<MetaEditorProps> = ({
                 {meta.groupPattern === 'alternate-2' && '每 2 週輪調 (A/B公版)'}
                 {meta.groupPattern === 'alternate-1' && '每 1 週輪調 (單雙週)'}
                 {meta.groupPattern === 'alternate-3' && '每 3 週輪調'}
+                {meta.groupPattern === 'half-semester' && '上半學期A／下半學期B'}
                 {meta.groupPattern === 'custom' && '自訂設定'}
               </span>
             </div>
@@ -125,10 +131,16 @@ export const MetaEditor: React.FC<MetaEditorProps> = ({
               <option value="alternate-2">每 2 週輪調 (中正高工公版標準)</option>
               <option value="alternate-1">每 1 週輪調 (單雙週交替)</option>
               <option value="alternate-3">每 3 週輪調</option>
+              <option value="half-semester">上半學期 A、下半學期 B</option>
               <option value="none">全班上課 (不分組)</option>
-              <option value="custom">自訂個別週次</option>
+              <option value="custom">自訂序（aabbbb…）</option>
             </select>
           </div>
+          {meta.groupPattern === 'custom' && (
+            <p className="w-full text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+              自訂分組中。可在「智慧填寫 → 多行批次貼上」輸入 aabbbbaaaabb 並貼進度一次完成。
+            </p>
+          )}
 
           <button
             id="toggle-meta-details-btn"

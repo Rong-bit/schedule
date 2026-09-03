@@ -195,11 +195,24 @@ export const DEFAULT_META: PlanMetadata = {
 // Calculate rotation group for a given week
 export function getCalculatedGroup(
   week: number,
-  pattern: 'none' | 'alternate-2' | 'alternate-1' | 'alternate-3' | 'custom',
+  pattern: 'none' | 'alternate-2' | 'alternate-1' | 'alternate-3' | 'half-semester' | 'custom',
   nameA: string = 'A組',
-  nameB: string = 'B組'
+  nameB: string = 'B組',
+  sequence?: string[],
+  totalWeeks: number = 21
 ): string {
   if (pattern === 'none') return '全班';
+  if (pattern === 'custom') {
+    if (sequence && sequence.length > 0) {
+      return sequence[week - 1] ?? sequence[sequence.length - 1];
+    }
+    return nameA;
+  }
+  if (pattern === 'half-semester') {
+    // 上半學期 A、下半學期 B（21 週 → 1~11 為 A，12~21 為 B）
+    const mid = Math.ceil(totalWeeks / 2);
+    return week <= mid ? nameA : nameB;
+  }
   if (pattern === 'alternate-1') {
     // Alternate every 1 week: 1->A, 2->B, 3->A, 4->B
     return (week % 2 === 1) ? nameA : nameB;
@@ -216,6 +229,41 @@ export function getCalculatedGroup(
     return (block % 2 === 0) ? nameA : nameB;
   }
   return nameA;
+}
+
+/**
+ * 解析自訂分組序。
+ * 支援：
+ * - 緊湊字串：aabbbbaaaabbbbaaaabb
+ * - 一行一週：a / b / A組 / B組
+ */
+export function parseGroupSequenceText(
+  text: string,
+  nameA: string = 'A組',
+  nameB: string = 'B組'
+): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  const hasNewline = /[\r\n]/.test(trimmed);
+  const compact = trimmed.replace(/[\s,，、._\-]/g, '');
+
+  // 單行緊湊 aabb…（不含換行）
+  if (!hasNewline && /^[aAbB甲乙]+$/.test(compact)) {
+    return [...compact].map((ch) => (/[bB乙]/.test(ch) ? nameB : nameA));
+  }
+
+  return trimmed
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const normalized = line.replace(/\s+/g, '');
+      if (/全班|全體|不分組/i.test(normalized)) return '全班';
+      if (/^(b|B|乙)/.test(normalized) || /B組|乙組/.test(normalized)) return nameB;
+      if (/^(a|A|甲)/.test(normalized) || /A組|甲組/.test(normalized)) return nameA;
+      return nameA;
+    });
 }
 
 export const SAMPLE_PROGRESS_MICROPROCESSOR = [

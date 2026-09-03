@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { CalendarWeek, SyllabusPlan, SyllabusRow } from '../types';
-import { Sparkles, Printer, CheckCircle2, Eye, Edit3, Bookmark, AlertCircle, Wand2, CalendarDays } from 'lucide-react';
+import { Sparkles, Printer, CheckCircle2, Eye, Edit3, Bookmark, AlertCircle, Wand2 } from 'lucide-react';
 import { evaluateClassDay, alignRowsWithClassWeekday } from '../utils/scheduleRules';
 
 interface SyllabusTableProps {
@@ -396,25 +396,9 @@ export const SyllabusTable: React.FC<SyllabusTableProps> = ({
                       <span className="inline-block font-mono">{row.week}</span>
                     </td>
 
-                    {/* B欄: 起訖日期（唯讀，公式從行事曆抓取，並標示該週實習課實際日期） */}
+                    {/* B欄: 起訖日期（唯讀，公式從行事曆抓取） */}
                     <td className="py-1.5 px-2 text-center whitespace-nowrap border border-slate-200 print:border-black font-mono text-xs text-slate-700 print:text-black">
                       <div className="font-medium text-slate-800 print:text-black">{row.dateRangeText}</div>
-                      <div className="mt-0.5">
-                        {evalResult.isHoliday ? (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 print:border-none print:bg-transparent print:text-black">
-                            <span>🎌 上課日：{evalResult.dateText}（放假）</span>
-                          </span>
-                        ) : evalResult.isExam ? (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-200 print:border-none print:bg-transparent print:text-black">
-                            <span>📝 上課日：{evalResult.dateText}（段考）</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-800 border border-blue-200/60 print:border-none print:bg-transparent print:text-black">
-                            <CalendarDays className="w-2.5 h-2.5 print:hidden text-blue-600" />
-                            <span>上課日：{evalResult.dateText}</span>
-                          </span>
-                        )}
-                      </div>
                     </td>
 
                     {/* C欄: 預定實習課程進度（開放輸入，放假與段考支援紅字標註） */}
