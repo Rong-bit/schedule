@@ -426,9 +426,13 @@ export function applySharedGroupProgress(
       return;
     }
     teachingIndexes.push(idx);
+    // 只走貼上的一輪：先清空上課週舊進度，避免多出來的週次留下上一輪內容
+    if (!isCustomWorkProgress(row.courseProgress)) {
+      next[idx] = { ...next[idx], courseProgress: '' };
+    }
   });
 
-  // 全班：上課週依序填 topics
+  // 全班：上課週依序填 topics（其餘上課週維持空白）
   if (options.groupPattern === 'none') {
     let used = 0;
     for (const idx of teachingIndexes) {
@@ -445,7 +449,7 @@ export function applySharedGroupProgress(
     };
   }
 
-  // 有分組：A、B 各取上課週清單，第 N 週同序位填相同進度（一行＝各組一堂）
+  // 有分組：A、B 各取上課週清單，第 N 堂同序位填相同進度（一行＝各組一堂；多出的堂次留白）
   const aIndexes = teachingIndexes.filter((idx) => isGroupA(next[idx].group, nameA));
   const bIndexes = teachingIndexes.filter((idx) => isGroupB(next[idx].group, nameB));
 
@@ -460,12 +464,6 @@ export function applySharedGroupProgress(
       const topic = topics[i];
       next[aIndexes[i]] = { ...next[aIndexes[i]], courseProgress: topic };
       next[bIndexes[i]] = { ...next[bIndexes[i]], courseProgress: topic };
-      used += 1;
-    }
-    // 某一組上課週較多時，剩餘週繼續用後續 topics
-    const longer = aIndexes.length >= bIndexes.length ? aIndexes : bIndexes;
-    for (let i = pairCount; i < longer.length && used < topics.length; i += 1) {
-      next[longer[i]] = { ...next[longer[i]], courseProgress: topics[used] };
       used += 1;
     }
   } else {
@@ -498,7 +496,7 @@ export function applySharedGroupProgress(
   };
 }
 
-/** 一行一個單元，只填實際上課週（放假／考查週不佔行、也不覆蓋） */
+/** 一行一個單元，只填實際上課週（放假／考查週不佔行；多出的上課週清空） */
 export function applySequentialTeachingProgress(
   rows: SyllabusRow[],
   topics: string[],
@@ -513,7 +511,10 @@ export function applySequentialTeachingProgress(
       skippedWeeks.push(row.week);
       return row;
     }
-    if (used >= clean.length) return row;
+    if (isCustomWorkProgress(row.courseProgress)) return row;
+    if (used >= clean.length) {
+      return { ...row, courseProgress: '' };
+    }
     const topic = clean[used];
     used += 1;
     return { ...row, courseProgress: topic };

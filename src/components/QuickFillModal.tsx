@@ -270,7 +270,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                     <span>
                       <span className="font-bold text-slate-900 block">A/B 共用進度（建議）</span>
                       <span className="text-[11px] text-slate-500 leading-relaxed">
-                        一行＝各組第 N 堂實際上課週。A、B 第 1 堂同填第 1 行，第 2 堂同填第 2 行；放假／考查不佔行。
+                        一行＝各組第 N 堂實際上課週；只填貼上的一輪，多出來的上課週會清空。放假／考查不佔行。
                       </span>
                     </span>
                   </label>
