@@ -445,51 +445,31 @@ export function applySharedGroupProgress(
     };
   }
 
-  // 有分組：依「連續同組上課週」為一個單元，A、B 同序位填相同進度
-  type GroupKey = 'A' | 'B' | 'other';
-  const groupOf = (idx: number): GroupKey => {
-    if (isGroupA(next[idx].group, nameA)) return 'A';
-    if (isGroupB(next[idx].group, nameB)) return 'B';
-    return 'other';
-  };
-
-  const runs: { group: GroupKey; indexes: number[] }[] = [];
-  for (const idx of teachingIndexes) {
-    const g = groupOf(idx);
-    const last = runs[runs.length - 1];
-    if (last && last.group === g) last.indexes.push(idx);
-    else runs.push({ group: g, indexes: [idx] });
-  }
-
-  const aRuns = runs.filter((r) => r.group === 'A').map((r) => r.indexes);
-  const bRuns = runs.filter((r) => r.group === 'B').map((r) => r.indexes);
+  // 有分組：A、B 各取上課週清單，第 N 週同序位填相同進度（一行＝各組一堂）
+  const aIndexes = teachingIndexes.filter((idx) => isGroupA(next[idx].group, nameA));
+  const bIndexes = teachingIndexes.filter((idx) => isGroupB(next[idx].group, nameB));
 
   const pairCount =
-    aRuns.length > 0 && bRuns.length > 0
-      ? Math.min(aRuns.length, bRuns.length, topics.length)
+    aIndexes.length > 0 && bIndexes.length > 0
+      ? Math.min(aIndexes.length, bIndexes.length, topics.length)
       : 0;
 
   let used = 0;
   if (pairCount > 0) {
     for (let i = 0; i < pairCount; i += 1) {
       const topic = topics[i];
-      for (const idx of aRuns[i]) {
-        next[idx] = { ...next[idx], courseProgress: topic };
-      }
-      for (const idx of bRuns[i]) {
-        next[idx] = { ...next[idx], courseProgress: topic };
-      }
+      next[aIndexes[i]] = { ...next[aIndexes[i]], courseProgress: topic };
+      next[bIndexes[i]] = { ...next[bIndexes[i]], courseProgress: topic };
       used += 1;
     }
-    const longer = aRuns.length >= bRuns.length ? aRuns : bRuns;
+    // 某一組上課週較多時，剩餘週繼續用後續 topics
+    const longer = aIndexes.length >= bIndexes.length ? aIndexes : bIndexes;
     for (let i = pairCount; i < longer.length && used < topics.length; i += 1) {
-      for (const idx of longer[i]) {
-        next[idx] = { ...next[idx], courseProgress: topics[used] };
-      }
+      next[longer[i]] = { ...next[longer[i]], courseProgress: topics[used] };
       used += 1;
     }
   } else {
-    // 無有效 A/B：相鄰兩段上課週視為同一單元
+    // 無有效 A/B：兩兩配對相鄰上課週
     for (let i = 0; i + 1 < teachingIndexes.length && used < topics.length; i += 2) {
       const topic = topics[used];
       next[teachingIndexes[i]] = {

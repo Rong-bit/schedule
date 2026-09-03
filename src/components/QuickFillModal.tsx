@@ -78,27 +78,11 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
     const bWeeks = teaching.filter(
       (r) => r.group === nameB || /^B/i.test(r.group) || r.group.includes('乙')
     );
-    let aRuns = 0;
-    let bRuns = 0;
-    let last = '';
-    for (const r of teaching) {
-      const g =
-        r.group === nameA || /^A/i.test(r.group) || r.group.includes('甲')
-          ? 'A'
-          : r.group === nameB || /^B/i.test(r.group) || r.group.includes('乙')
-            ? 'B'
-            : 'o';
-      if (g !== last) {
-        if (g === 'A') aRuns += 1;
-        if (g === 'B') bRuns += 1;
-        last = g;
-      }
-    }
     return {
       teachingCount: teaching.length,
       aCount: aWeeks.length,
       bCount: bWeeks.length,
-      pairHint: Math.min(aRuns, bRuns) || Math.floor(teaching.length / 2),
+      pairHint: Math.min(aWeeks.length, bWeeks.length) || Math.floor(teaching.length / 2),
       seqLen: seq.length,
     };
   }, [plan, calendar, groupPatternText, pasteMode]);
@@ -286,7 +270,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                     <span>
                       <span className="font-bold text-slate-900 block">A/B 共用進度（建議）</span>
                       <span className="text-[11px] text-slate-500 leading-relaxed">
-                        先依目前輪調（只算實際上課週）排 A／B，再貼半學期進度；放假／考查不佔行，兩邊同序位相同課程。
+                        一行＝各組第 N 堂實際上課週。A、B 第 1 堂同填第 1 行，第 2 堂同填第 2 行；放假／考查不佔行。
                       </span>
                     </span>
                   </label>
@@ -330,9 +314,9 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
                     />
                   </div>
                   <div className="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 leading-relaxed">
-                    實際上課週約可排 <strong>{teachingPreview.pairHint}</strong> 個單元
-                    （{plan.meta.groupA_name} {teachingPreview.aCount} 週／
-                    {plan.meta.groupB_name} {teachingPreview.bCount} 週；放假／考查不佔行）。
+                    約可排 <strong>{teachingPreview.pairHint}</strong> 行（各組一堂對一堂）
+                    （{plan.meta.groupA_name} {teachingPreview.aCount} 堂／
+                    {plan.meta.groupB_name} {teachingPreview.bCount} 堂；放假／考查不佔行）。
                     {teachingPreview.seqLen > 0 && (
                       <span className="text-slate-500"> 分組序長度 {teachingPreview.seqLen}。</span>
                     )}
@@ -343,7 +327,7 @@ export const QuickFillModal: React.FC<QuickFillModalProps> = ({
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {pasteMode === 'shared-ab'
-                    ? '請貼上半學期進度（一行一個單元，只填實際上課週，A/B 會自動共用）：'
+                    ? '請貼上半學期進度（一行＝各組一堂；A/B 第 N 堂共用同一行）：'
                     : '請貼上課進度（一行一個單元，只填實際上課週）：'}
                 </label>
                 <textarea
