@@ -1,0 +1,8 @@
+{
+  "name": "Remix 高工實習教學進度表產生器",
+  "description": "專為中正高工等技術型高中設計之實習教學及作業預定進度表工具，自動對應學期行事曆、週次起訖日期與分組輪調，支援 A4 公版排版、一鍵列印/匯出 PDF 與 Google 試算表。",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
